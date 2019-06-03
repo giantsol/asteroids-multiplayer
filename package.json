@@ -1,15 +1,24 @@
 {
   "name": "asteroids-multiplayer",
+  "author": "Hansol Lee",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@material-ui/core": "^4.0.1",
+    "@material-ui/lab": "^4.0.0-alpha.14",
     "@types/jest": "24.0.13",
+    "@types/material-ui": "^0.21.6",
     "@types/node": "12.0.4",
     "@types/react": "16.8.19",
     "@types/react-dom": "16.8.4",
+    "@types/socket.io": "^2.1.2",
+    "@types/socket.io-client": "^1.4.32",
+    "notistack": "^0.8.5",
     "react": "^16.8.6",
     "react-dom": "^16.8.6",
     "react-scripts": "3.0.1",
+    "socket.io": "^2.2.0",
+    "socket.io-client": "^2.2.0",
     "typescript": "3.5.1"
   },
   "scripts": {
