@@ -1,6 +1,7 @@
 import {Request, Response} from "express"
 import {ServerSocketEventsHelper} from "./ServerSocketEventsHelper"
 import {DomainSocket, ServerGameData} from "./ServerModels"
+import {RGBColor} from "react-color"
 
 const paths = require('../../config/paths');
 const express = require('express')
@@ -44,6 +45,10 @@ class Server {
         ServerSocketEventsHelper.subscribeDisconnectedEvent(socket, () => {
             this.onDisconnectedEvent(socket)
         })
+
+        ServerSocketEventsHelper.subscribeTryLoggingInEvent(socket, (name, color) => {
+            this.onTryLoggingInEvent(socket, name, color)
+        })
     }
 
     private onDisconnectedEvent(socket: DomainSocket): void {
@@ -52,6 +57,21 @@ class Server {
         if (i >= 0) {
             this.connectedSockets.splice(i, 1)
         }
+
+        if (socket.me) {
+            this.gameData.removePlayer(socket.me)
+        }
+    }
+
+    private onTryLoggingInEvent(socket: DomainSocket, name: string, color: RGBColor): void {
+        if (socket.me) {
+            return
+        }
+
+        const newPlayer = this.gameData.addPlayer(socket.id, name, color)
+        socket.me = newPlayer
+
+        ServerSocketEventsHelper.sendLoggedInEvent(socket, newPlayer.toDTO())
     }
 
     private gameUpdateLoop(): void {
@@ -60,7 +80,7 @@ class Server {
 
         const gameDataDTO = gameData.toDTO()
         for (let socket of this.connectedSockets) {
-            ServerSocketEventsHelper.sendGameData(socket, gameDataDTO)
+            ServerSocketEventsHelper.sendGameDataEvent(socket, gameDataDTO)
         }
 
         // recursively call myself

@@ -1,10 +1,15 @@
 import {Socket} from "socket.io"
 import {
     ConnectedEvent,
-    ConnectedEventCallback, DisconnectedEvent,
-    DisconnectedEventCallback, GameDataEvent
+    ConnectedEventCallback,
+    DisconnectedEvent,
+    DisconnectedEventCallback,
+    GameDataEvent,
+    LoggedInEvent,
+    TryLoggingInEvent,
+    TryLoggingInEventCallback
 } from "../shared/SocketEvents"
-import {GameDataDTO} from "../shared/DTOs"
+import {GameDataDTO, PlayerDTO} from "../shared/DTOs"
 import {DomainSocket} from "./ServerModels"
 
 export class ServerSocketEventsHelper {
@@ -16,7 +21,16 @@ export class ServerSocketEventsHelper {
         socket.on(DisconnectedEvent.key, callback)
     }
 
-    public static sendGameData(socket: DomainSocket, gameData: GameDataDTO): void {
+    public static subscribeTryLoggingInEvent(socket: DomainSocket, callback: TryLoggingInEventCallback): void {
+        socket.on(TryLoggingInEvent.key, callback)
+    }
+
+    public static sendGameDataEvent(socket: DomainSocket, gameData: GameDataDTO): void {
         socket.emit(GameDataEvent.key, ...GameDataEvent.emitterParams(gameData))
+    }
+
+    public static sendLoggedInEvent(socket: Socket, player: PlayerDTO): void {
+        socket.emit(LoggedInEvent.key, ...LoggedInEvent.emitterParams(player))
+        // socket.broadcast.emit(NewPlayerJoinedEvent.key, ...NewPlayerJoinedEvent.emitterParams(player))
     }
 }

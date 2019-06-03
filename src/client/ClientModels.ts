@@ -3,13 +3,14 @@ import P5Functions from "./P5Functions"
 
 export class ClientGameData {
     private readonly p5: P5Functions
+    private readonly players: ClientPlayer[] = []
 
     constructor(p5: P5Functions) {
         this.p5 = p5
     }
 
     update(newData: GameDataDTO): void {
-
+        console.log(newData)
     }
 
     draw(myId: string | null): void {
@@ -22,4 +23,8 @@ export class ClientGameData {
             p5.text('no myId', p5.height, p5.width, 20)
         }
     }
+}
+
+export class ClientPlayer {
+
 }

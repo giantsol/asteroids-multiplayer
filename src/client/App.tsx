@@ -4,7 +4,9 @@ import io from 'socket.io-client'
 import P5Functions from "./P5Functions"
 import {ClientGameData} from "./ClientModels"
 import {ClientSocketEventsHelper} from "./ClientSocketEventsHelper"
-import {GameDataDTO} from "../shared/DTOs"
+import {GameDataDTO, PlayerDTO} from "../shared/DTOs"
+import {RGBColor} from "react-color"
+import LogInView from "./LogInView"
 
 interface Props extends WithSnackbarProps {}
 
@@ -33,6 +35,9 @@ class App extends React.Component<Props, State> implements P5Functions {
 
     private readonly currentGameData: ClientGameData = new ClientGameData(this)
 
+    private prevLoggedInName: string | null = null
+    private prevLoggedInColor: RGBColor | null = null
+
     constructor(props: Props) {
         super(props)
         this.socket = io.connect()
@@ -41,6 +46,7 @@ class App extends React.Component<Props, State> implements P5Functions {
         this.onAnimationFrame = this.onAnimationFrame.bind(this)
         this.onWindowResizeEvent = this.onWindowResizeEvent.bind(this)
         this.onGameDataEvent = this.onGameDataEvent.bind(this)
+        this.onLoggedInEvent = this.onLoggedInEvent.bind(this)
     }
 
     render() {
@@ -52,6 +58,12 @@ class App extends React.Component<Props, State> implements P5Functions {
                             style={{width: "100%", height: "100%", display: "block", border: '2px solid white'}}>
                         Fallback text for old browsers.
                     </canvas>
+                    { this.state.myId
+                        ? null
+                        : <LogInView socket={this.socket}
+                                     prevName={this.prevLoggedInName}
+                                     prevColor={this.prevLoggedInColor} />
+                    }
                 </div>
             </div>
         )
@@ -64,10 +76,26 @@ class App extends React.Component<Props, State> implements P5Functions {
             this.requestAnimationFrameHandler = window.requestAnimationFrame(this.onAnimationFrame)
 
             const socket = this.socket
+            ClientSocketEventsHelper.subscribeLoggedInEvent(socket, this.onLoggedInEvent)
             ClientSocketEventsHelper.subscribeGameDataEvent(socket, this.onGameDataEvent)
 
             window.addEventListener('resize', this.onWindowResizeEvent)
         }
+    }
+
+    componentWillUnmount(): void {
+        this.canvasContext = null
+        if (this.requestAnimationFrameHandler) {
+            window.cancelAnimationFrame(this.requestAnimationFrameHandler)
+        }
+
+        window.removeEventListener('resize', this.onWindowResizeEvent)
+    }
+
+    private onLoggedInEvent(you: PlayerDTO): void {
+        this.setState({myId: you.id})
+        this.prevLoggedInName = you.name
+        this.prevLoggedInColor = you.color
     }
 
     private onGameDataEvent(gameData: GameDataDTO): void {
@@ -120,15 +148,6 @@ class App extends React.Component<Props, State> implements P5Functions {
         }
 
         this.requestAnimationFrameHandler = window.requestAnimationFrame(this.onAnimationFrame)
-    }
-
-    componentWillUnmount(): void {
-        this.canvasContext = null
-        if (this.requestAnimationFrameHandler) {
-            window.cancelAnimationFrame(this.requestAnimationFrameHandler)
-        }
-
-        window.removeEventListener('resize', this.onWindowResizeEvent)
     }
 
     // P5Functions
