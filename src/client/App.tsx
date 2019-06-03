@@ -1,5 +1,4 @@
 import React, {createRef} from 'react'
-import './App.css';
 import {withSnackbar, WithSnackbarProps} from "notistack"
 import P5Functions from "./P5Functions"
 
@@ -11,7 +10,6 @@ interface State {
 }
 
 class App extends React.Component<Props, State> implements P5Functions {
-    private readonly socket: SocketIOClient.Emitter
     private readonly canvasRef = createRef<HTMLCanvasElement>()
 
     width = 0
@@ -19,7 +17,6 @@ class App extends React.Component<Props, State> implements P5Functions {
 
     constructor(props: Props) {
         super(props)
-        this.socket = io.connect()
         this.state = { myId: null, fitScreenHeight: true }
     }
 
