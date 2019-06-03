@@ -2,9 +2,10 @@ import {
     GameDataEvent,
     GameDataEventCallback,
     LoggedInEvent,
-    LoggedInEventCallback, TryLoggingInEvent
+    LoggedInEventCallback, PlayerInputEvent, TryLoggingInEvent
 } from "../shared/SocketEvents"
 import {RGBColor} from "react-color"
+import {PlayerInputDTO} from "../shared/DTOs"
 
 export class ClientSocketEventsHelper {
 
@@ -18,5 +19,9 @@ export class ClientSocketEventsHelper {
 
     public static sendTryLoggingInEvent(socket: SocketIOClient.Emitter, name: string, color: RGBColor): void {
         socket.emit(TryLoggingInEvent.key, ...TryLoggingInEvent.emitterParams(name, color))
+    }
+
+    public static sendPlayerInput(socket: SocketIOClient.Emitter, playerInput: PlayerInputDTO): void {
+        socket.emit(PlayerInputEvent.key, ...PlayerInputEvent.emitterParams(playerInput))
     }
 }

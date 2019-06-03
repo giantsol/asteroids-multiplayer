@@ -5,7 +5,7 @@ import {
     DisconnectedEvent,
     DisconnectedEventCallback,
     GameDataEvent,
-    LoggedInEvent,
+    LoggedInEvent, PlayerInputEvent, PlayerInputEventCallback,
     TryLoggingInEvent,
     TryLoggingInEventCallback
 } from "../shared/SocketEvents"
@@ -23,6 +23,10 @@ export class ServerSocketEventsHelper {
 
     public static subscribeTryLoggingInEvent(socket: DomainSocket, callback: TryLoggingInEventCallback): void {
         socket.on(TryLoggingInEvent.key, callback)
+    }
+
+    public static subscribePlayerInputEvent(socket: Socket, callback: PlayerInputEventCallback): void {
+        socket.on(PlayerInputEvent.key, callback)
     }
 
     public static sendGameDataEvent(socket: DomainSocket, gameData: GameDataDTO): void {

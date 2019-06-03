@@ -1,5 +1,5 @@
 import {DomainSocket} from "../server/ServerModels"
-import {GameDataDTO, PlayerDTO} from "./DTOs"
+import {GameDataDTO, PlayerDTO, PlayerInputDTO} from "./DTOs"
 import {RGBColor} from "react-color"
 
 export type ConnectedEventCallback = (socket: DomainSocket) => void
@@ -33,5 +33,13 @@ export class TryLoggingInEvent {
     static readonly key = "try_logging_in"
     static emitterParams(name: string, color: RGBColor): any[] {
         return [name, color]
+    }
+}
+
+export type PlayerInputEventCallback = (playerInput: PlayerInputDTO) => void
+export class PlayerInputEvent {
+    static readonly key = "player_input"
+    static emitterParams(playerInput: PlayerInputDTO): any[] {
+        return [playerInput]
     }
 }

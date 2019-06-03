@@ -13,4 +13,15 @@ export interface PlayerDTO {
     color: RGBColor
     x: number
     y: number
+    size: number
+    heading: number
+    vertices: number[][]
+    showTail: boolean
+}
+
+export interface PlayerInputDTO {
+    left: boolean
+    right: boolean
+    up: boolean
+    fire: boolean
 }

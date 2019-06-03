@@ -2,6 +2,7 @@ import {Request, Response} from "express"
 import {ServerSocketEventsHelper} from "./ServerSocketEventsHelper"
 import {DomainSocket, ServerGameData} from "./ServerModels"
 import {RGBColor} from "react-color"
+import {PlayerInputDTO} from "../shared/DTOs"
 
 const paths = require('../../config/paths');
 const express = require('express')
@@ -49,6 +50,10 @@ class Server {
         ServerSocketEventsHelper.subscribeTryLoggingInEvent(socket, (name, color) => {
             this.onTryLoggingInEvent(socket, name, color)
         })
+
+        ServerSocketEventsHelper.subscribePlayerInputEvent(socket, playerInput => {
+            this.onPlayerInputEvent(socket, playerInput)
+        })
     }
 
     private onDisconnectedEvent(socket: DomainSocket): void {
@@ -72,6 +77,12 @@ class Server {
         socket.me = newPlayer
 
         ServerSocketEventsHelper.sendLoggedInEvent(socket, newPlayer.toDTO())
+    }
+
+    private onPlayerInputEvent = (socket: DomainSocket, playerInput: PlayerInputDTO) => {
+        if (socket.me) {
+            socket.me.applyInput(playerInput)
+        }
     }
 
     private gameUpdateLoop(): void {

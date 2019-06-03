@@ -4,9 +4,10 @@ import io from 'socket.io-client'
 import P5Functions from "./P5Functions"
 import {ClientGameData} from "./ClientModels"
 import {ClientSocketEventsHelper} from "./ClientSocketEventsHelper"
-import {GameDataDTO, PlayerDTO} from "../shared/DTOs"
+import {GameDataDTO, PlayerDTO, PlayerInputDTO} from "../shared/DTOs"
 import {RGBColor} from "react-color"
 import LogInView from "./LogInView"
+import './App.css'
 
 interface Props extends WithSnackbarProps {}
 
@@ -38,6 +39,15 @@ class App extends React.Component<Props, State> implements P5Functions {
     private prevLoggedInName: string | null = null
     private prevLoggedInColor: RGBColor | null = null
 
+    private readonly playerInput: PlayerInputDTO = {
+        left: false,
+        right: false,
+        up: false,
+        fire: false
+    }
+    private sendInputLoopHandler: NodeJS.Timeout | null = null
+    private readonly sendInputInterval = 1000 / 60
+
     constructor(props: Props) {
         super(props)
         this.socket = io.connect()
@@ -47,10 +57,13 @@ class App extends React.Component<Props, State> implements P5Functions {
         this.onWindowResizeEvent = this.onWindowResizeEvent.bind(this)
         this.onGameDataEvent = this.onGameDataEvent.bind(this)
         this.onLoggedInEvent = this.onLoggedInEvent.bind(this)
+        this.sendInputLoop = this.sendInputLoop.bind(this)
+        this.onKeyDownEvent = this.onKeyDownEvent.bind(this)
+        this.onKeyUpEvent = this.onKeyUpEvent.bind(this)
     }
 
     render() {
-        const divStyle = this.state.fitScreenHeight ? "fitHeight" : "fitWidth"
+        const divStyle = this.state.fitScreenHeight ? 'fitHeight' : 'fitWidth'
         return (
             <div style={{width: "100vw", height: "100vh", backgroundColor: "black"}}>
                 <div className={divStyle} style={{position: "relative"}}>
@@ -74,11 +87,14 @@ class App extends React.Component<Props, State> implements P5Functions {
         this.canvasContext = canvas && canvas.getContext('2d')
         if (this.canvasContext) {
             this.requestAnimationFrameHandler = window.requestAnimationFrame(this.onAnimationFrame)
+            this.sendInputLoopHandler = setTimeout(this.sendInputLoop, this.sendInputInterval)
 
             const socket = this.socket
             ClientSocketEventsHelper.subscribeLoggedInEvent(socket, this.onLoggedInEvent)
             ClientSocketEventsHelper.subscribeGameDataEvent(socket, this.onGameDataEvent)
 
+            document.addEventListener('keydown', this.onKeyDownEvent)
+            document.addEventListener('keyup', this.onKeyUpEvent)
             window.addEventListener('resize', this.onWindowResizeEvent)
         }
     }
@@ -88,8 +104,87 @@ class App extends React.Component<Props, State> implements P5Functions {
         if (this.requestAnimationFrameHandler) {
             window.cancelAnimationFrame(this.requestAnimationFrameHandler)
         }
+        if (this.sendInputLoopHandler) {
+            clearTimeout(this.sendInputLoopHandler)
+        }
 
+        document.removeEventListener('keydown', this.onKeyDownEvent)
+        document.removeEventListener('keyup', this.onKeyUpEvent)
         window.removeEventListener('resize', this.onWindowResizeEvent)
+    }
+
+    private sendInputLoop(): void {
+        // send user input to the server
+        ClientSocketEventsHelper.sendPlayerInput(this.socket, this.playerInput)
+        this.sendInputLoopHandler = setTimeout(this.sendInputLoop, this.sendInputInterval)
+    }
+
+    private onKeyDownEvent(event: KeyboardEvent): void {
+        if (event.code) {
+            switch (event.code) {
+                case "ArrowLeft":
+                    this.playerInput.left = true
+                    break
+                case "ArrowRight":
+                    this.playerInput.right = true
+                    break
+                case "ArrowUp":
+                    this.playerInput.up = true
+                    break
+                case 'Space':
+                    this.playerInput.fire = true
+                    break
+            }
+        } else {
+            switch (event.keyCode) {
+                case 37:
+                    this.playerInput.left = true
+                    break
+                case 38:
+                    this.playerInput.up = true
+                    break
+                case 39:
+                    this.playerInput.right = true
+                    break
+                case 32:
+                    this.playerInput.fire = true
+                    break
+            }
+        }
+    }
+
+    private onKeyUpEvent(event: KeyboardEvent): void {
+        if (event.code ) {
+            switch (event.code) {
+                case "ArrowLeft":
+                    this.playerInput.left = false
+                    break
+                case "ArrowRight":
+                    this.playerInput.right = false
+                    break
+                case "ArrowUp":
+                    this.playerInput.up = false
+                    break
+                case 'Space':
+                    this.playerInput.fire = false
+                    break
+            }
+        } else {
+            switch (event.keyCode) {
+                case 37:
+                    this.playerInput.left = false
+                    break
+                case 38:
+                    this.playerInput.up = false
+                    break
+                case 39:
+                    this.playerInput.right = false
+                    break
+                case 32:
+                    this.playerInput.fire = false
+                    break
+            }
+        }
     }
 
     private onLoggedInEvent(you: PlayerDTO): void {
