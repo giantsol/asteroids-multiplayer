@@ -2,6 +2,9 @@ import React, {createRef} from 'react'
 import {withSnackbar, WithSnackbarProps} from "notistack"
 import io from 'socket.io-client'
 import P5Functions from "./P5Functions"
+import {ClientGameData} from "./ClientModels"
+import {ClientSocketEventsHelper} from "./ClientSocketEventsHelper"
+import {GameDataDTO} from "../shared/DTOs"
 
 interface Props extends WithSnackbarProps {}
 
@@ -12,15 +15,32 @@ interface State {
 
 class App extends React.Component<Props, State> implements P5Functions {
     private readonly socket: SocketIOClient.Emitter
+
     private readonly canvasRef = createRef<HTMLCanvasElement>()
+    private canvasContext: CanvasRenderingContext2D | null = null
+
+    private requestAnimationFrameHandler: number | null = null
 
     width = 0
     height = 0
+
+    // framerate 관련 변수들
+    private readonly fps = 60
+    private readonly interval = 1000 / this.fps
+    private now = 0
+    private then = Date.now()
+    private delta: number = 0
+
+    private readonly currentGameData: ClientGameData = new ClientGameData(this)
 
     constructor(props: Props) {
         super(props)
         this.socket = io.connect()
         this.state = { myId: null, fitScreenHeight: true }
+
+        this.onAnimationFrame = this.onAnimationFrame.bind(this)
+        this.onWindowResizeEvent = this.onWindowResizeEvent.bind(this)
+        this.onGameDataEvent = this.onGameDataEvent.bind(this)
     }
 
     render() {
@@ -32,12 +52,262 @@ class App extends React.Component<Props, State> implements P5Functions {
                             style={{width: "100%", height: "100%", display: "block", border: '2px solid white'}}>
                         Fallback text for old browsers.
                     </canvas>
-                    <span>Hello World!</span>
                 </div>
             </div>
         )
     }
 
+    componentDidMount(): void {
+        const canvas = this.canvasRef.current
+        this.canvasContext = canvas && canvas.getContext('2d')
+        if (this.canvasContext) {
+            this.requestAnimationFrameHandler = window.requestAnimationFrame(this.onAnimationFrame)
+
+            const socket = this.socket
+            ClientSocketEventsHelper.subscribeGameDataEvent(socket, this.onGameDataEvent)
+
+            window.addEventListener('resize', this.onWindowResizeEvent)
+        }
+    }
+
+    private onGameDataEvent(gameData: GameDataDTO): void {
+        this.currentGameData.update(gameData)
+        this.updateCanvasSizeIfChanged(gameData)
+    }
+
+    private updateCanvasSizeIfChanged(newData: GameDataDTO): void {
+        if (this.height !== newData.height || this.width !== newData.width) {
+            const canvas = this.canvasRef.current
+            if (canvas) {
+                canvas.width = newData.width
+                canvas.height = newData.height
+                this.width = newData.width
+                this.height = newData.height
+            }
+        }
+    }
+
+    private onWindowResizeEvent(): void {
+        const w = window.innerWidth
+        const h = window.innerHeight
+        const fitHeight = w >= h
+        if (this.state.fitScreenHeight !== fitHeight) {
+            this.setState({fitScreenHeight: fitHeight})
+        }
+    }
+
+    private onAnimationFrame(): void {
+        const ctx = this.canvasContext
+        const gameData = this.currentGameData
+        if (ctx && gameData) {
+            // framerate 관련 로직
+            this.now = Date.now()
+            this.delta = this.now - this.then
+
+            if (this.delta > this.interval) {
+                this.then = this.now - (this.delta % this.interval)
+
+                ctx.clearRect(0, 0, this.width, this.height)
+                ctx.save()
+                // for anti-aliasing effect (https://stackoverflow.com/questions/4261090/html5-canvas-and-anti-aliasing)
+                ctx.translate(0.5, 0.5)
+
+                gameData.draw(this.state.myId)
+
+                ctx.restore()
+
+            }
+        }
+
+        this.requestAnimationFrameHandler = window.requestAnimationFrame(this.onAnimationFrame)
+    }
+
+    componentWillUnmount(): void {
+        this.canvasContext = null
+        if (this.requestAnimationFrameHandler) {
+            window.cancelAnimationFrame(this.requestAnimationFrameHandler)
+        }
+
+        window.removeEventListener('resize', this.onWindowResizeEvent)
+    }
+
+    // P5Functions
+
+    background(color: number): void;
+    background(r: number, g: number, b: number): void;
+    background(r: number, g: number, b: number, a: number): void;
+    background(r: number, g?: number, b?: number, a: number = 1.0) {
+        const context = this.canvasContext
+        if (context) {
+            const prevFillStyle = context.fillStyle
+
+            if (g !== undefined && b !== undefined) {
+                context.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`
+            } else {
+                context.fillStyle = `rgba(${r}, ${r}, ${r}, ${a})`
+            }
+            context.fillRect(0, 0, this.width, this.height)
+
+            context.fillStyle = prevFillStyle
+        }
+    }
+
+    stroke(color: number): void;
+    stroke(r: number, g: number, b: number): void;
+    stroke(r: number, g: number, b: number, a: number): void;
+    stroke(r: number, g?: number, b?: number, a: number = 1.0) {
+        const context = this.canvasContext
+        if (context) {
+            if (g !== undefined && b !== undefined) {
+                context.strokeStyle = `rgba(${r}, ${g}, ${b}, ${a})`
+            } else {
+                context.strokeStyle = `rgba(${r}, ${r}, ${r}, ${a})`
+            }
+        }
+    }
+
+    strokeWeight(weight: number) {
+        const context = this.canvasContext
+        if (context) {
+            context.lineWidth = weight
+        }
+    }
+
+    fill(color: number): void;
+    fill(r: number, g: number, b: number): void;
+    fill(r: number, g: number, b: number, a: number): void;
+    fill(r: number, g?: number, b?: number, a: number = 1.0) {
+        const context = this.canvasContext
+        if (context) {
+            if (g !== undefined && b !== undefined) {
+                context.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`
+            } else {
+                context.fillStyle = `rgba(${r}, ${r}, ${r}, ${a})`
+            }
+        }
+    }
+
+    noFill() {
+        const context = this.canvasContext
+        if (context) {
+            context.fillStyle = 'rgba(0,0,0,0)'
+        }
+    }
+
+    ellipse(x: number, y: number, width: number, height: number) {
+        const context = this.canvasContext
+        if (context) {
+            context.beginPath()
+            context.ellipse(x, y, width / 2, height / 2, 0, 0, 360)
+            context.stroke()
+            context.fill()
+        }
+    }
+
+    translate(x: number, y: number) {
+        const context = this.canvasContext
+        if (context) {
+            context.translate(x, y)
+        }
+    }
+
+    rotate(radian: number) {
+        const context = this.canvasContext
+        if (context) {
+            context.rotate(radian)
+        }
+    }
+
+    line(x1: number, y1: number, x2: number, y2: number) {
+        const context = this.canvasContext
+        if (context) {
+            context.beginPath()
+            context.moveTo(x1, y1)
+            context.lineTo(x2, y2)
+            context.stroke()
+        }
+    }
+
+    beginShape() {
+        const context = this.canvasContext
+        if (context) {
+            context.beginPath()
+        }
+    }
+
+    endShape() {
+        const context = this.canvasContext
+        if (context) {
+            context.closePath()
+            context.stroke()
+            context.fill()
+        }
+    }
+
+    vertex(x: number, y: number) {
+        const context = this.canvasContext
+        if (context) {
+            context.lineTo(x, y)
+        }
+    }
+
+    triangle(x1: number, y1: number, x2: number, y2: number, x3: number, y3: number): void {
+        const context = this.canvasContext
+        if (context) {
+            context.beginPath()
+            context.moveTo(x1, y1)
+            context.lineTo(x2, y2)
+            context.lineTo(x3, y3)
+            context.closePath()
+            context.stroke()
+            context.fill()
+        }
+    }
+
+    restore(): void {
+        const context = this.canvasContext
+        if (context) {
+            context.restore()
+        }
+    }
+
+    save(): void {
+        const context = this.canvasContext
+        if (context) {
+            context.save()
+        }
+    }
+
+    scale(amount: number): void {
+        const context = this.canvasContext
+        if (context) {
+            context.scale(amount, amount)
+        }
+    }
+
+    text(text: string, x: number, y: number, size: number): void {
+        const context = this.canvasContext
+        if (context) {
+            context.font = `${size}px roboto`
+            context.textAlign = 'center'
+            context.fillText(text, x, y)
+        }
+    }
+
+    rect(x1: number, y1: number, w: number, h: number): void {
+        const context = this.canvasContext
+        if (context) {
+            context.fillRect(x1, y1, w, h)
+            context.strokeRect(x1, y1, w, h)
+        }
+    }
+
+    noStroke(): void {
+        const context = this.canvasContext
+        if (context) {
+            context.strokeStyle = 'rgba(0,0,0,0)'
+        }
+    }
 }
 
 

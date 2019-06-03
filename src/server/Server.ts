@@ -1,6 +1,6 @@
 import {Request, Response} from "express"
 import {ServerSocketEventsHelper} from "./ServerSocketEventsHelper"
-import {DomainSocket} from "./ServerModels"
+import {DomainSocket, ServerGameData} from "./ServerModels"
 
 const paths = require('../../config/paths');
 const express = require('express')
@@ -16,6 +16,15 @@ app.get('/', (req: Request, res: Response) => {
 })
 
 class Server {
+    private readonly gameUpdateInterval = 1000 / 60
+    private readonly connectedSockets: DomainSocket[] = []
+
+    private readonly gameData: ServerGameData = new ServerGameData()
+
+    constructor() {
+        this.gameUpdateLoop = this.gameUpdateLoop.bind(this)
+    }
+
     start(port: string): void {
         http.listen(port, () => {
             console.info(`Listening on port ${port}`)
@@ -24,10 +33,13 @@ class Server {
         ServerSocketEventsHelper.subscribeConnectedEvent(io, socket => {
             this.onConnectedEvent(socket)
         })
+
+        setTimeout(this.gameUpdateLoop, this.gameUpdateInterval)
     }
 
     private onConnectedEvent(socket: DomainSocket): void {
         console.log(`socket id ${socket.id} connected`)
+        this.connectedSockets.push(socket)
 
         ServerSocketEventsHelper.subscribeDisconnectedEvent(socket, () => {
             this.onDisconnectedEvent(socket)
@@ -36,6 +48,23 @@ class Server {
 
     private onDisconnectedEvent(socket: DomainSocket): void {
         console.log(`socket id ${socket.id} disconnected`)
+        const i = this.connectedSockets.findIndex(value => value.id === socket.id)
+        if (i >= 0) {
+            this.connectedSockets.splice(i, 1)
+        }
+    }
+
+    private gameUpdateLoop(): void {
+        const gameData = this.gameData
+        gameData.update()
+
+        const gameDataDTO = gameData.toDTO()
+        for (let socket of this.connectedSockets) {
+            ServerSocketEventsHelper.sendGameData(socket, gameDataDTO)
+        }
+
+        // recursively call myself
+        setTimeout(this.gameUpdateLoop, this.gameUpdateInterval)
     }
 
 }
