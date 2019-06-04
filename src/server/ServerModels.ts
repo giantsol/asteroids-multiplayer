@@ -31,8 +31,8 @@ export class ServerGameData {
         return {
             width: this.width,
             height: this.height,
-            players: this.players.map(value => value.toDTO()),
-            bullets: this.bulletHouse.bullets.map(bullet => bullet.toDTO())
+            players: this.players.map(value => value.dtoObject),
+            bullets: this.bulletHouse.bullets.map(bullet => bullet.dtoObject)
         }
     }
 
@@ -78,6 +78,8 @@ export class ServerPlayer {
 
     private readonly bulletHouse: BulletHouse
 
+    readonly dtoObject: PlayerDTO
+
     constructor(id: string, name: string, color: RGBColor, x: number, y: number,
                 bulletHouse: BulletHouse) {
         this.id = id
@@ -90,10 +92,8 @@ export class ServerPlayer {
         this.vertices.push([-size, size], [size, size], [0, -size])
 
         this.bulletHouse = bulletHouse
-    }
 
-    toDTO(): PlayerDTO {
-        return {
+        this.dtoObject = {
             id: this.id,
             name: this.name,
             color: this.color,
@@ -148,6 +148,12 @@ export class ServerPlayer {
         }
 
         this.showTail = this.velocity.magnitude() > 1
+
+        const dto = this.dtoObject
+        dto.x = this.x
+        dto.y = this.y
+        dto.heading = this.heading
+        dto.showTail = this.showTail
     }
 
     private updateBoostingForce(isBoosting: boolean): void {
@@ -226,15 +232,13 @@ export class ServerBullet {
 
     needsToBeRecycled = false
 
-    toDTO(): BulletDTO {
-        return {
-            id: this.id,
-            x: this.x,
-            y: this.y,
-            heading: this.heading,
-            vertices: this.vertices,
-            color: this.color
-        }
+    readonly dtoObject: BulletDTO = {
+        id: this.id,
+        x: this.x,
+        y: this.y,
+        heading: this.heading,
+        vertices: this.vertices,
+        color: this.color
     }
 
     setInitValues(firerId: string, x: number, y: number, heading: number, color: RGBColor): void {
@@ -255,6 +259,12 @@ export class ServerBullet {
         if (!this.needsToBeRecycled) {
             this.needsToBeRecycled = x > width || x < 0 || y > height || y < 0
         }
+
+        const dto = this.dtoObject
+        dto.x = x
+        dto.y = y
+        dto.heading = this.heading
+        dto.color = this.color
     }
 
     prepareRecycle(): void {

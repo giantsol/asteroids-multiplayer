@@ -76,7 +76,7 @@ class Server {
         const newPlayer = this.gameData.addPlayer(socket.id, name, color)
         socket.me = newPlayer
 
-        ServerSocketEventsHelper.sendLoggedInEvent(socket, newPlayer.toDTO())
+        ServerSocketEventsHelper.sendLoggedInEvent(socket, newPlayer.dtoObject)
     }
 
     private onPlayerInputEvent = (socket: DomainSocket, playerInput: PlayerInputDTO) => {
