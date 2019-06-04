@@ -89,7 +89,7 @@ class Server {
         const gameData = this.gameData
         gameData.update()
 
-        const gameDataDTO = gameData.toDTO()
+        const gameDataDTO = gameData.dtoObject
         for (let socket of this.connectedSockets) {
             ServerSocketEventsHelper.sendGameDataEvent(socket, gameDataDTO)
         }

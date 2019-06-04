@@ -14,8 +14,14 @@ export class ServerGameData {
     private readonly height: number = 4000
 
     private readonly players: ServerPlayer[] = []
+    private readonly bulletHouse: BulletHouse = new BulletHouse()
 
-    readonly bulletHouse: BulletHouse = new BulletHouse()
+    readonly dtoObject: GameDataDTO = {
+        width: this.width,
+        height: this.height,
+        players: this.players.map(value => value.dtoObject),
+        bullets: this.bulletHouse.bullets.map(bullet => bullet.dtoObject)
+    }
 
     update(): void {
         const width = this.width
@@ -25,15 +31,10 @@ export class ServerGameData {
 
         players.forEach(player => player.update(width, height))
         bulletHouse.update(width, height)
-    }
 
-    toDTO(): GameDataDTO {
-        return {
-            width: this.width,
-            height: this.height,
-            players: this.players.map(value => value.dtoObject),
-            bullets: this.bulletHouse.bullets.map(bullet => bullet.dtoObject)
-        }
+        const dto = this.dtoObject
+        dto.players = this.players.map(value => value.dtoObject)
+        dto.bullets = this.bulletHouse.bullets.map(bullet => bullet.dtoObject)
     }
 
     addPlayer(id: string, name: string, color: RGBColor): ServerPlayer {
