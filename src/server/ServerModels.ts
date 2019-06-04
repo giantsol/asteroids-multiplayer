@@ -1,8 +1,9 @@
 import {Socket} from "socket.io"
-import {GameDataDTO, PlayerDTO, PlayerInputDTO} from "../shared/DTOs"
+import {BulletDTO, GameDataDTO, PlayerDTO, PlayerInputDTO} from "../shared/DTOs"
 import {RGBColor} from "react-color"
 import {Constants} from "../shared/Constants"
 import Victor = require("victor")
+import uuid = require("uuid")
 
 export interface DomainSocket extends Socket {
     me: ServerPlayer
@@ -14,24 +15,30 @@ export class ServerGameData {
 
     private readonly players: ServerPlayer[] = []
 
+    readonly bulletHouse: BulletHouse = new BulletHouse()
+
     update(): void {
         const width = this.width
         const height = this.height
         const players = this.players
+        const bulletHouse = this.bulletHouse
 
         players.forEach(player => player.update(width, height))
+        bulletHouse.update(width, height)
     }
 
     toDTO(): GameDataDTO {
         return {
             width: this.width,
             height: this.height,
-            players: this.players.map(value => value.toDTO())
+            players: this.players.map(value => value.toDTO()),
+            bullets: this.bulletHouse.bullets.map(bullet => bullet.toDTO())
         }
     }
 
     addPlayer(id: string, name: string, color: RGBColor): ServerPlayer {
-        const newPlayer = new ServerPlayer(id, name, color, this.width / 2, this.height / 2)
+        const newPlayer = new ServerPlayer(id, name, color, this.width / 2, this.height / 2,
+            this.bulletHouse)
         this.players.push(newPlayer)
         return newPlayer
     }
@@ -69,7 +76,10 @@ export class ServerPlayer {
     private then = Date.now()
     private fireDelta = 0
 
-    constructor(id: string, name: string, color: RGBColor, x: number, y: number) {
+    private readonly bulletHouse: BulletHouse
+
+    constructor(id: string, name: string, color: RGBColor, x: number, y: number,
+                bulletHouse: BulletHouse) {
         this.id = id
         this.name = name
         this.color = color
@@ -78,6 +88,8 @@ export class ServerPlayer {
 
         const size = this.size
         this.vertices.push([-size, size], [size, size], [0, -size])
+
+        this.bulletHouse = bulletHouse
     }
 
     toDTO(): PlayerDTO {
@@ -131,7 +143,7 @@ export class ServerPlayer {
             if (this.fireDelta > this.fireInterval) {
                 this.then = this.now
 
-                // todo: fire bullet!
+                this.bulletHouse.fireBullet(this.id, this.x, this.y, this.heading, this.color)
             }
         }
 
@@ -162,3 +174,97 @@ export class ServerPlayer {
         }
     }
 }
+
+class BulletHouse {
+    private readonly recycledBullets: ServerBullet[] = []
+    readonly bullets: ServerBullet[] = []
+
+    fireBullet(firerId: string, x: number, y: number, heading: number, color: RGBColor): void {
+        const bullet = this.createOrGetBullet()
+        bullet.setInitValues(firerId, x, y, heading, color)
+        this.bullets.push(bullet)
+    }
+
+    private createOrGetBullet(): ServerBullet {
+        let bullet = this.recycledBullets.pop()
+        if (!bullet) {
+            bullet = new ServerBullet()
+        }
+        return bullet
+    }
+
+    update(width: number, height: number): void {
+        const bullets = this.bullets
+        const recycledBullets = this.recycledBullets
+        let i = bullets.length
+        while (i--) {
+            const bullet = bullets[i]
+            bullet.update(width, height)
+            if (bullet.needsToBeRecycled) {
+                bullet.prepareRecycle()
+                recycledBullets.push(bullet)
+                bullets.splice(i, 1)
+            }
+        }
+    }
+
+}
+
+export class ServerBullet {
+    private static readonly speed = 10
+
+    private readonly id: string = uuid()
+    private readonly maxSize: number = 5
+    private readonly vertices: number[][] = [[0, -this.maxSize], [0, this.maxSize]]
+    private x: number = 0
+    private y: number = 0
+    private heading: number = 0
+
+    private firerId: string | null = null
+    private readonly velocity = new Victor(0, 0)
+    private color = { r: 255, g: 255, b: 255 }
+
+    needsToBeRecycled = false
+
+    toDTO(): BulletDTO {
+        return {
+            id: this.id,
+            x: this.x,
+            y: this.y,
+            heading: this.heading,
+            vertices: this.vertices,
+            color: this.color
+        }
+    }
+
+    setInitValues(firerId: string, x: number, y: number, heading: number, color: RGBColor): void {
+        this.firerId = firerId
+        this.x = x
+        this.y = y
+        this.heading = heading
+        this.velocity.addScalar(1).rotateBy(heading + Constants.HALF_PI).norm().multiplyScalar(ServerBullet.speed)
+        this.color = color
+    }
+
+    update(width: number, height: number): void {
+        this.x += this.velocity.x
+        this.y += this.velocity.y
+
+        const x = this.x
+        const y = this.y
+        if (!this.needsToBeRecycled) {
+            this.needsToBeRecycled = x > width || x < 0 || y > height || y < 0
+        }
+    }
+
+    prepareRecycle(): void {
+        this.x = -1000
+        this.y = -1000
+        this.heading = 0
+        this.velocity.multiplyScalar(0)
+        this.firerId = null
+        this.needsToBeRecycled = false
+    }
+
+}
+

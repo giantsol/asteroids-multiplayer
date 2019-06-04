@@ -1,4 +1,4 @@
-import {GameDataDTO, PlayerDTO} from "../shared/DTOs"
+import {BulletDTO, GameDataDTO, PlayerDTO} from "../shared/DTOs"
 import P5Functions from "./P5Functions"
 import Utils from "../shared/Utils"
 import {RGBColor} from "react-color"
@@ -7,6 +7,7 @@ import {Constants} from "../shared/Constants"
 export class ClientGameData {
     private readonly p5: P5Functions
     private readonly players: ClientPlayer[] = []
+    private readonly bullets: ClientBullet[] = []
 
     constructor(p5: P5Functions) {
         this.p5 = p5
@@ -18,6 +19,12 @@ export class ClientGameData {
             (e, n) => e.update(n),
             n => new ClientPlayer(n, this.p5)
         )
+
+        Utils.updateArrayData(this.bullets, newData.bullets,
+            (a, b) => a.id === b.id,
+            (a, b) => a.update(b),
+            (b) => new ClientBullet(b, this.p5)
+        )
     }
 
     draw(myId: string | null): void {
@@ -25,9 +32,15 @@ export class ClientGameData {
         p5.background(0)
 
         p5.save()
+
         for (let player of this.players) {
             player.draw()
         }
+
+        for (let bullet of this.bullets) {
+            bullet.draw()
+        }
+
         p5.restore()
     }
 }
@@ -107,6 +120,50 @@ export class ClientPlayer {
             p5.restore()
         }
 
+        p5.restore()
+    }
+}
+
+export class ClientBullet {
+    readonly id: string
+    readonly vertices: number[][]
+    x: number
+    y: number
+    heading: number
+    color: RGBColor
+
+    private readonly p5: P5Functions
+
+    constructor(data: BulletDTO, p5: P5Functions) {
+        this.id = data.id
+        this.heading = data.heading
+        this.x = data.x
+        this.y = data.y
+        this.vertices = data.vertices
+        this.p5 = p5
+        this.color = data.color
+    }
+
+    update(data: BulletDTO) {
+        this.x = data.x
+        this.y = data.y
+        this.heading = data.heading
+        this.color = data.color
+    }
+
+    draw() {
+        const p5 = this.p5
+        p5.save()
+        p5.translate(this.x, this.y)
+        p5.rotate(this.heading - Constants.HALF_PI)
+        p5.noFill()
+        p5.stroke(this.color.r, this.color.g, this.color.b)
+        p5.strokeWeight(5)
+        p5.beginShape()
+        const vertices = this.vertices
+        p5.vertex(vertices[0][0], vertices[0][1])
+        p5.vertex(vertices[1][0], vertices[1][1])
+        p5.endShape()
         p5.restore()
     }
 }

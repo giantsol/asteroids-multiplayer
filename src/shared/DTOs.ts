@@ -5,6 +5,7 @@ export interface GameDataDTO {
     height: number
     width: number
     players: PlayerDTO[]
+    bullets: BulletDTO[]
 }
 
 export interface PlayerDTO {
@@ -24,4 +25,13 @@ export interface PlayerInputDTO {
     right: boolean
     up: boolean
     fire: boolean
+}
+
+export interface BulletDTO {
+    id: string
+    x: number
+    y: number
+    heading: number
+    vertices: number[][]
+    color: RGBColor
 }
