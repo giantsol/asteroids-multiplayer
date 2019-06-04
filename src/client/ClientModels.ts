@@ -1,4 +1,4 @@
-import {BulletDTO, GameDataDTO, PlayerDTO} from "../shared/DTOs"
+import {AsteroidDTO, BulletDTO, GameDataDTO, PlayerDTO} from "../shared/DTOs"
 import P5Functions from "./P5Functions"
 import Utils from "../shared/Utils"
 import {RGBColor} from "react-color"
@@ -8,6 +8,7 @@ export class ClientGameData {
     private readonly p5: P5Functions
     private readonly players: ClientPlayer[] = []
     private readonly bullets: ClientBullet[] = []
+    readonly asteroids: ClientAsteroid[] = []
 
     constructor(p5: P5Functions) {
         this.p5 = p5
@@ -21,9 +22,15 @@ export class ClientGameData {
         )
 
         Utils.updateArrayData(this.bullets, newData.bullets,
-            (a, b) => a.id === b.id,
-            (a, b) => a.update(b),
-            (b) => new ClientBullet(b, this.p5)
+            (e, n) => e.id === n.id,
+            (e, n) => e.update(n),
+            n => new ClientBullet(n, this.p5)
+        )
+
+        Utils.updateArrayData(this.asteroids, newData.asteroids,
+            (e, n) => e.id === n.id,
+            (e, n) => e.update(n),
+            n => new ClientAsteroid(n, this.p5)
         )
     }
 
@@ -39,6 +46,10 @@ export class ClientGameData {
 
         for (let bullet of this.bullets) {
             bullet.draw()
+        }
+
+        for (let asteroid of this.asteroids) {
+            asteroid.draw()
         }
 
         p5.restore()
@@ -167,3 +178,45 @@ export class ClientBullet {
         p5.restore()
     }
 }
+
+export class ClientAsteroid {
+    readonly id: string
+    readonly vertices: number[][]
+    private x: number
+    private y: number
+    private rotation: number
+
+    private readonly p5: P5Functions
+
+    constructor(dto: AsteroidDTO, p5: P5Functions) {
+        this.id = dto.id
+        this.vertices = dto.vertices
+        this.x = dto.x
+        this.y = dto.y
+        this.rotation = dto.rotation
+
+        this.p5 = p5
+    }
+
+    update(newData: AsteroidDTO): void {
+        this.x = newData.x
+        this.y = newData.y
+        this.rotation = newData.rotation
+    }
+
+    draw(): void {
+        const p5 = this.p5
+        p5.save()
+        p5.translate(this.x, this.y)
+        p5.rotate(this.rotation)
+        p5.fill(255)
+        p5.stroke(255)
+        p5.beginShape()
+        for (let vertex of this.vertices) {
+            p5.vertex(vertex[0], vertex[1])
+        }
+        p5.endShape()
+        p5.restore()
+    }
+}
+

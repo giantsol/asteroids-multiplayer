@@ -1,7 +1,8 @@
 import {Socket} from "socket.io"
-import {BulletDTO, GameDataDTO, PlayerDTO, PlayerInputDTO} from "../shared/DTOs"
+import {AsteroidDTO, BulletDTO, GameDataDTO, PlayerDTO, PlayerInputDTO} from "../shared/DTOs"
 import {RGBColor} from "react-color"
 import {Constants} from "../shared/Constants"
+import Utils from "../shared/Utils"
 import Victor = require("victor")
 import uuid = require("uuid")
 
@@ -15,12 +16,29 @@ export class ServerGameData {
 
     private readonly players: ServerPlayer[] = []
     private readonly bulletHouse: BulletHouse = new BulletHouse()
+    private readonly asteroids: ServerAsteroid[] = []
 
-    readonly dtoObject: GameDataDTO = {
-        width: this.width,
-        height: this.height,
-        players: this.players.map(value => value.dtoObject),
-        bullets: this.bulletHouse.bullets.map(bullet => bullet.dtoObject)
+    private readonly minBigAsteroidCount = 7
+    private readonly bigAsteroidCountMultiplesOfPlayer = 3
+    private curBigAsteroidsCount = 0
+
+    readonly dtoObject: GameDataDTO
+
+    constructor() {
+        const w = this.width
+        const h = this.height
+        for (let i = 0; i < this.minBigAsteroidCount; i++) {
+            this.asteroids.push(new ServerAsteroid(w, h, true))
+            this.curBigAsteroidsCount++
+        }
+
+        this.dtoObject = {
+            width: this.width,
+            height: this.height,
+            players: this.players.map(value => value.dtoObject),
+            bullets: this.bulletHouse.bullets.map(bullet => bullet.dtoObject),
+            asteroids: this.asteroids.map(value => value.dtoObject)
+        }
     }
 
     update(): void {
@@ -28,13 +46,32 @@ export class ServerGameData {
         const height = this.height
         const players = this.players
         const bulletHouse = this.bulletHouse
+        const asteroids = this.asteroids
 
         players.forEach(player => player.update(width, height))
         bulletHouse.update(width, height)
 
+        for (let i = 0; i < asteroids.length; i++) {
+            const asteroid = asteroids[i]
+            asteroid.update(width, height)
+            if (asteroid.needNewTarget) {
+                if (asteroid.isBig) {
+                    const randPlayer = Utils.pickRandom(this.players)
+                    if (randPlayer) {
+                        asteroid.setTarget(randPlayer.x, randPlayer.y)
+                    } else {
+                        asteroid.setTarget(Utils.randInt(0, width), Utils.randInt(0, height))
+                    }
+                } else {
+                    asteroids.splice(i--, 1)
+                }
+            }
+        }
+
         const dto = this.dtoObject
         dto.players = this.players.map(value => value.dtoObject)
         dto.bullets = this.bulletHouse.bullets.map(bullet => bullet.dtoObject)
+        dto.asteroids = this.asteroids.map(value => value.dtoObject)
     }
 
     addPlayer(id: string, name: string, color: RGBColor): ServerPlayer {
@@ -59,8 +96,8 @@ export class ServerPlayer {
     private readonly name: string
     private readonly color: RGBColor
     private readonly size: number = 15
-    private x: number
-    private y: number
+    x: number
+    y: number
     private heading: number = Constants.HALF_PI
     private readonly vertices: number[][] = []
     private showTail: boolean = false
@@ -279,3 +316,120 @@ export class ServerBullet {
 
 }
 
+export class ServerAsteroid {
+    static readonly vertexSize_big = 10
+    static readonly vertexSize_small = 5
+
+    readonly id: string = uuid()
+    readonly maxSize: number
+    readonly minSize: number
+    readonly vertices: number[][] = []
+    x!: number
+    y!: number
+    rotation: number = 0
+    private readonly rotationSpeed: number
+    private readonly velocity = new Victor(0, 0)
+    private speed: number
+
+    needNewTarget = true
+
+    private readonly outsideThreshold = 50
+
+    readonly isBig: boolean
+
+    readonly dtoObject: AsteroidDTO
+
+    constructor(width: number, height: number, isBig: boolean) {
+        this.setRandomSpawnPoint(width, height)
+        this.isBig = isBig
+
+        if (isBig) {
+            this.rotationSpeed = Utils.map(Math.random(), 0, 1, 0.01, 0.03)
+            this.speed = Utils.map(Math.random(), 0, 1, 1, 2)
+            this.maxSize = Utils.randInt(80, 100)
+            this.minSize = Utils.randInt(40, 60)
+
+            const vertexCount = ServerAsteroid.vertexSize_big
+            for (let i = 0; i < vertexCount; i++) {
+                const angle = Utils.map(i, 0, vertexCount, 0, Constants.TWO_PI)
+                const r = Utils.randInt(this.minSize, this.maxSize)
+                const x = r * Math.cos(angle)
+                const y = r * Math.sin(angle)
+                this.vertices.push([x, y])
+            }
+        } else {
+            this.rotationSpeed = Utils.map(Math.random(), 0, 1, 0.05, 0.07)
+            this.speed = Utils.map(Math.random(), 0, 1, 1.5, 2.5)
+            this.maxSize = Utils.randInt(40, 60)
+            this.minSize = Utils.randInt(10, 30)
+
+            const vertexCount = ServerAsteroid.vertexSize_small
+            for (let i = 0; i < vertexCount; i++) {
+                const angle = Utils.map(i, 0, vertexCount, 0, Constants.TWO_PI)
+                const r = Utils.randInt(this.minSize, this.maxSize)
+                const x = r * Math.cos(angle)
+                const y = r * Math.sin(angle)
+                this.vertices.push([x, y])
+            }
+        }
+
+        this.dtoObject = {
+            id: this.id,
+            x: this.x,
+            y: this.y,
+            rotation: this.rotation,
+            vertices: this.vertices
+        }
+    }
+
+    setTarget(x: number, y: number): void {
+        if (this.isBig) {
+            this.speed = Utils.map(Math.random(), 0, 1, 1, 2)
+        } else {
+            this.speed = Utils.map(Math.random(), 0, 1, 1.5, 2.5)
+        }
+        const v = new Victor(x, y).subtractScalarX(this.x).subtractScalarY(this.y).norm().multiplyScalar(this.speed)
+        this.velocity.x = v.x
+        this.velocity.y = v.y
+        this.needNewTarget = false
+    }
+
+    private setRandomSpawnPoint(width: number, height: number) {
+        const rand = Math.random()
+        if (rand < 0.25) {
+            this.x = Utils.randInt(-200, -100)
+            this.y = Utils.randInt(0, height)
+        } else if (rand < 0.5) {
+            this.x = Utils.randInt(0, width)
+            this.y = Utils.randInt(-200, -100)
+        } else if (rand < 0.75) {
+            this.x = Utils.randInt(width + 100, width + 200)
+            this.y = Utils.randInt(0, height)
+        } else {
+            this.x = Utils.randInt(0, width)
+            this.y = Utils.randInt(height + 100, height + 200)
+        }
+    }
+
+    update(width: number, height: number): void {
+        this.rotation += this.rotationSpeed
+        this.x += this.velocity.x
+        this.y += this.velocity.y
+
+        const x = this.x
+        const y = this.y
+        const size = this.maxSize
+        const outsideThreshold = this.outsideThreshold
+
+        if (!this.needNewTarget) {
+            this.needNewTarget = x - size > width + outsideThreshold || x + size < -outsideThreshold
+                || y - size > height + outsideThreshold || y + size < -outsideThreshold
+        }
+
+        const dto = this.dtoObject
+        dto.x = x
+        dto.y = y
+        dto.rotation = this.rotation
+    }
+
+}
