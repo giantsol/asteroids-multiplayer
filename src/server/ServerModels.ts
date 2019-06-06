@@ -31,7 +31,7 @@ export class ServerGameData {
     private readonly width: number = 4000
     private readonly height: number = 4000
 
-    private readonly players: ServerPlayer[] = []
+    private readonly players: Map<string, ServerPlayer> = new Map()
     private readonly bulletHouse: BulletHouse = new BulletHouse()
     private readonly asteroids: ServerAsteroid[] = []
 
@@ -54,7 +54,7 @@ export class ServerGameData {
         this.dtoObject = {
             width: this.width,
             height: this.height,
-            players: this.players.map(value => value.dtoObject),
+            players: Array.from(this.players.values()).map(value => value.dtoObject),
             bullets: this.bulletHouse.bullets.map(bullet => bullet.dtoObject),
             asteroids: this.asteroids.map(value => value.dtoObject)
         }
@@ -77,7 +77,7 @@ export class ServerGameData {
             asteroid.update(width, height)
             if (asteroid.needNewTarget) {
                 if (asteroid.isBig) {
-                    const randPlayer = Utils.pickRandom(this.players)
+                    const randPlayer = Utils.pickRandom(Array.from(this.players.values()))
                     if (randPlayer) {
                         asteroid.setTarget(randPlayer.x, randPlayer.y)
                     } else {
@@ -95,12 +95,9 @@ export class ServerGameData {
             asteroids[i].checkCollidedWith(bullets)
         }
 
-        i = players.length
-        while (i--) {
-            players[i].checkCollidedWith(asteroids, bullets)
-        }
+        players.forEach(player => player.checkCollidedWith(asteroids, bullets))
 
-        const neededBigAsteroidCount = Math.max(this.minBigAsteroidCount, players.length * this.bigAsteroidCountMultiplesOfPlayer)
+        const neededBigAsteroidCount = Math.max(this.minBigAsteroidCount, players.size * this.bigAsteroidCountMultiplesOfPlayer)
         if (this.curBigAsteroidsCount < neededBigAsteroidCount) {
             const count = neededBigAsteroidCount - this.curBigAsteroidsCount
             const gameEventsHandler = this.gameEventsHandler
@@ -111,7 +108,7 @@ export class ServerGameData {
         }
 
         const dto = this.dtoObject
-        dto.players = this.players.map(value => value.dtoObject)
+        dto.players = Array.from(this.players.values()).map(value => value.dtoObject)
         dto.bullets = this.bulletHouse.bullets.map(bullet => bullet.dtoObject)
         dto.asteroids = this.asteroids.map(value => value.dtoObject)
     }
@@ -119,17 +116,15 @@ export class ServerGameData {
     addPlayer(id: string, name: string, color: RGBColor): ServerPlayer {
         const newPlayer = new ServerPlayer(id, name, color, this.width / 2, this.height / 2,
             this.bulletHouse, this.gameEventsHandler)
-        this.players.push(newPlayer)
+        this.players.set(id, newPlayer)
         return newPlayer
     }
 
     removePlayerById(id: string): ServerPlayer | null {
-        const players = this.players
-        const index = players.findIndex(value => id === value.id)
-        if (index >= 0) {
-            const removingPlayer = players[index]
-            players.splice(index, 1)
-            return removingPlayer
+        const player = this.players.get(id)
+        if (player) {
+            this.players.delete(id)
+            return player
         } else {
             return null
         }
@@ -162,7 +157,7 @@ export class ServerGameData {
     }
 
     getPlayerWithId(id: string): ServerPlayer | null {
-        return this.players.find(player => player.id === id) || null
+        return this.players.get(id) || null
     }
 
     recycleBulletById(id: string): void {

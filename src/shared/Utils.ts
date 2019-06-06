@@ -37,6 +37,7 @@ export default class Utils {
         }
     }
 
+
     // min&max inclusive
     // min and max must be integers
     static randInt(min: number, max: number): number {
@@ -45,7 +46,7 @@ export default class Utils {
 
     static checkCollidedWith(me: CollidingObject, othersArray: CollidingObject[][]): void {
         for (let objects of othersArray) {
-            if (objects.length == 0) {
+            if (objects.length === 0) {
                 continue
             }
 
