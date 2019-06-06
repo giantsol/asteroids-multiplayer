@@ -22,7 +22,7 @@ export class ClientGameData {
     private readonly pointsHorizontalSpacing1 = 600
     private readonly pointsHorizontalSpacing2 = 400
     private readonly pointsTextSize = 100
-    private readonly labelNickname = 'Nickname'
+    private readonly labelNickname = 'Name'
     private readonly labelAsteroidPoint = 'Asteroid'
     private readonly labelKillingPoint = 'PK'
 
