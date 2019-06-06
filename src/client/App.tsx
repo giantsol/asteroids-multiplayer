@@ -12,6 +12,8 @@ import './App.css'
 interface Props extends WithSnackbarProps {}
 
 interface State {
+    // my player instance id
+    // null if my player instance doesn't exist (e.g. didn't log in yet, dead etc)
     myId: string | null
     fitScreenHeight: boolean
 }
@@ -27,7 +29,7 @@ class App extends React.Component<Props, State> implements P5Functions {
     width = 0
     height = 0
 
-    // framerate 관련 변수들
+    // framerate related properties
     private readonly fps = 60
     private readonly interval = 1000 / this.fps
     private now = 0
@@ -36,6 +38,7 @@ class App extends React.Component<Props, State> implements P5Functions {
 
     private readonly currentGameData: ClientGameData = new ClientGameData(this)
 
+    // keep track of previous login info to provide easier login experience
     private prevLoggedInName: string | null = null
     private prevLoggedInColor: RGBColor | null = null
 
@@ -46,6 +49,7 @@ class App extends React.Component<Props, State> implements P5Functions {
         fire: false
     }
     private sendInputLoopHandler: NodeJS.Timeout | null = null
+    // send input to the server approx 60fps
     private readonly sendInputInterval = 1000 / 60
 
     constructor(props: Props) {
@@ -148,6 +152,7 @@ class App extends React.Component<Props, State> implements P5Functions {
                     break
             }
         } else {
+            // fallback for browsers not supporting event.code
             switch (event.keyCode) {
                 case 37:
                     this.playerInput.left = true
@@ -182,6 +187,7 @@ class App extends React.Component<Props, State> implements P5Functions {
                     break
             }
         } else {
+            // fallback for browsers not supporting event.code
             switch (event.keyCode) {
                 case 37:
                     this.playerInput.left = false
@@ -207,6 +213,7 @@ class App extends React.Component<Props, State> implements P5Functions {
 
     private onGameDataEvent(gameData: GameDataDTO): void {
         this.updateCanvasSizeIfChanged(gameData)
+        // update client game data (e.g. position, color etc) with server data
         this.currentGameData.update(gameData)
     }
 
@@ -263,7 +270,7 @@ class App extends React.Component<Props, State> implements P5Functions {
         const ctx = this.canvasContext
         const gameData = this.currentGameData
         if (ctx && gameData) {
-            // framerate 관련 로직
+            // framerate related logic
             this.now = Date.now()
             this.delta = this.now - this.then
 
@@ -275,10 +282,10 @@ class App extends React.Component<Props, State> implements P5Functions {
                 // for anti-aliasing effect (https://stackoverflow.com/questions/4261090/html5-canvas-and-anti-aliasing)
                 ctx.translate(0.5, 0.5)
 
+                // do the main drawing of client game data
                 gameData.draw(this.state.myId)
 
                 ctx.restore()
-
             }
         }
 
@@ -463,6 +470,5 @@ class App extends React.Component<Props, State> implements P5Functions {
         }
     }
 }
-
 
 export default withSnackbar(App)

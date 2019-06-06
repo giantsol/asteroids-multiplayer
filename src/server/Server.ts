@@ -2,7 +2,8 @@ import {Request, Response} from "express"
 import {ServerSocketEventsHelper} from "./ServerSocketEventsHelper"
 import {
     DomainSocket,
-    GameEventsHandler, ServerAsteroid,
+    GameEventsHandler,
+    ServerAsteroid,
     ServerBullet,
     ServerGameData,
     ServerPlayer
@@ -20,10 +21,12 @@ const io = require('socket.io')(http)
 app.use(express.static('build'))
 
 app.get('/', (req: Request, res: Response) => {
+    // when user connects to this server, send index.html which will connect to this server via websocket
     res.sendFile(paths.appHtml, { root: paths.appBuild })
 })
 
 class Server implements GameEventsHandler {
+    // update game logic (e.g. position, collision detection) at rate 60fps approx.
     private readonly gameUpdateInterval = 1000 / 60
     private readonly connectedSockets: DomainSocket[] = []
 
@@ -45,6 +48,7 @@ class Server implements GameEventsHandler {
         setTimeout(this.gameUpdateLoop, this.gameUpdateInterval)
     }
 
+    // new socket connected
     private onConnectedEvent(socket: DomainSocket): void {
         console.log(`socket id ${socket.id} connected`)
         this.connectedSockets.push(socket)
@@ -62,6 +66,7 @@ class Server implements GameEventsHandler {
         })
     }
 
+    // socket disconnected (by user closing tab or refreshing etc)
     private onDisconnectedEvent(socket: DomainSocket): void {
         console.log(`socket id ${socket.id} disconnected`)
         const i = this.connectedSockets.findIndex(value => value.id === socket.id)
@@ -76,8 +81,11 @@ class Server implements GameEventsHandler {
         }
     }
 
+    // use hit ok button on LogInView
     private onTryLoggingInEvent(socket: DomainSocket, name: string, color: RGBColor): void {
         if (socket.me) {
+            // if this socket's player is already created, just return
+            // could happen if user clicks ok button multiple times very fase
             return
         }
 
@@ -87,7 +95,8 @@ class Server implements GameEventsHandler {
         ServerSocketEventsHelper.sendLoggedInEvent(socket, newPlayer.dtoObject)
     }
 
-    private onPlayerInputEvent = (socket: DomainSocket, playerInput: PlayerInputDTO) => {
+    // client sends keyboard input event at approx 60fps
+    private onPlayerInputEvent(socket: DomainSocket, playerInput: PlayerInputDTO): void {
         if (socket.me) {
             socket.me.applyInput(playerInput)
         }
@@ -95,8 +104,10 @@ class Server implements GameEventsHandler {
 
     private gameUpdateLoop(): void {
         const gameData = this.gameData
+        // game update logic happens here!
         gameData.update()
 
+        // send game data to all connected sockets
         const gameDataDTO = gameData.dtoObject
         for (let socket of this.connectedSockets) {
             ServerSocketEventsHelper.sendGameDataEvent(socket, gameDataDTO)
@@ -106,11 +117,15 @@ class Server implements GameEventsHandler {
         setTimeout(this.gameUpdateLoop, this.gameUpdateInterval)
     }
 
+    // GameEventsHandler
+
     asteroidKilledPlayer(asteroid: ServerAsteroid, player: ServerPlayer): void {
         const gameData = this.gameData
         const killedPlayer = gameData.removePlayerById(player.id)
         if (killedPlayer) {
+            // recycle all bullets fired by this killedPlayer
             gameData.recycleBulletsByFirerId(killedPlayer.id)
+
             const killedPlayerSocket = this.connectedSockets.find(socket => socket.id === killedPlayer.id)
             if (killedPlayerSocket) {
                 killedPlayerSocket.me = null
@@ -118,6 +133,7 @@ class Server implements GameEventsHandler {
             }
         }
 
+        // do damage to the asteroid
         gameData.breakAsteroid(asteroid)
     }
 
@@ -142,11 +158,13 @@ class Server implements GameEventsHandler {
                 const killedPlayer = gameData.removePlayerById(player.id)
                 if (killedPlayer) {
                     gameData.recycleBulletsByFirerId(killedPlayer.id)
+
                     const killedPlayerSocket = this.connectedSockets.find(socket => socket.id === killedPlayer.id)
                     if (killedPlayerSocket) {
                         killedPlayerSocket.me = null
                         ServerSocketEventsHelper.sendKilledByPlayerEvent(killedPlayerSocket, firer.dtoObject, killedPlayer.dtoObject)
                     }
+
                     firer.increaseKillingPoint()
                 }
             }

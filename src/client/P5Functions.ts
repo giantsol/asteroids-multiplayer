@@ -1,3 +1,4 @@
+// custom p5 functions that will wrap canvas api
 export default interface P5Functions {
     width: number
     height: number

@@ -28,10 +28,12 @@ export interface CollidingObject {
 }
 
 export class ServerGameData {
+    // canvas width & height fixed to 4000
     private readonly width: number = 4000
     private readonly height: number = 4000
 
     private readonly players: Map<string, ServerPlayer> = new Map()
+    // todo: change list to map for faster add/remove/query
     private readonly bulletHouse: BulletHouse = new BulletHouse()
     private readonly asteroids: ServerAsteroid[] = []
 
@@ -39,6 +41,8 @@ export class ServerGameData {
     private readonly bigAsteroidCountMultiplesOfPlayer = 3
     private curBigAsteroidsCount = 0
 
+    // DTO object (i.e. saturated data for sending over internet) of this object
+    // keeps sync with this object in update() function
     readonly dtoObject: GameDataDTO
 
     private readonly gameEventsHandler: GameEventsHandler
@@ -46,6 +50,8 @@ export class ServerGameData {
     constructor(gameEventsHandler: GameEventsHandler) {
         const w = this.width
         const h = this.height
+
+        // add initial asteroids
         for (let i = 0; i < this.minBigAsteroidCount; i++) {
             this.asteroids.push(new ServerAsteroid(w, h, true, gameEventsHandler))
             this.curBigAsteroidsCount++
@@ -69,6 +75,7 @@ export class ServerGameData {
         const bulletHouse = this.bulletHouse
         const asteroids = this.asteroids
 
+        // update position, color etc of all child data
         players.forEach(player => player.update(width, height))
         bulletHouse.update(width, height)
 
@@ -89,6 +96,8 @@ export class ServerGameData {
             }
         }
 
+        // do collision detection
+        // may invoke GameEventsHandler functions when collisions are detected
         const bullets = bulletHouse.bullets
         let i = asteroids.length
         while (i--) {
@@ -97,6 +106,8 @@ export class ServerGameData {
 
         players.forEach(player => player.checkCollidedWith(asteroids, bullets))
 
+        // big asteroids may have been reduced in size due to above collision processing.
+        // add some more if necessary
         const neededBigAsteroidCount = Math.max(this.minBigAsteroidCount, players.size * this.bigAsteroidCountMultiplesOfPlayer)
         if (this.curBigAsteroidsCount < neededBigAsteroidCount) {
             const count = neededBigAsteroidCount - this.curBigAsteroidsCount
@@ -107,6 +118,7 @@ export class ServerGameData {
             }
         }
 
+        // sync dtoObject
         const dto = this.dtoObject
         dto.players = Array.from(this.players.values()).map(value => value.dtoObject)
         dto.bullets = this.bulletHouse.bullets.map(bullet => bullet.dtoObject)
@@ -132,6 +144,8 @@ export class ServerGameData {
 
     breakAsteroid(asteroid: ServerAsteroid): void {
         const removed = this.removeAsteroidById(asteroid.id)
+        // if broken asteroid was a big one, create 3 little pieces from its location
+        // else, just remove it and done
         if (removed && removed.isBig) {
             const width = this.width
             const height = this.height
@@ -201,12 +215,14 @@ export class ServerPlayer implements CollidingObject {
 
     private readonly gameEventsHandler: GameEventsHandler
 
+    // manually calculated from its fixed size (i.e. 15)
     readonly maxCollidingDistance: number = 21.21
     readonly minCollidingDistance: number = 6.7
 
     private asteroidPoints = 0
     private killingPoints = 0
 
+    // when this player is created, it is invincible for this amount of frames
     private invincibleCountdown = 255
 
     get isInvincible(): boolean {
@@ -261,6 +277,7 @@ export class ServerPlayer implements CollidingObject {
     update(width: number, height: number): void {
         this.heading += this.rotation
 
+        // update x and y position
         this.updateBoostingForce(this.isBoosting)
         this.acceleration.add(this.boostingForce)
         this.velocity.add(this.acceleration)
@@ -291,6 +308,8 @@ export class ServerPlayer implements CollidingObject {
             this.invincibleCountdown -= 1
         }
 
+        // update its color
+        // when it's invincible, it will blink. else, it just shows its original color
         const origColor = this.origColor
         if (this.invincibleCountdown > 0) {
             const countdown = this.invincibleCountdown
@@ -303,6 +322,7 @@ export class ServerPlayer implements CollidingObject {
             this.currentColor.b = origColor.b
         }
 
+        // update dtoObject
         const dto = this.dtoObject
         dto.x = this.x
         dto.y = this.y
@@ -321,6 +341,7 @@ export class ServerPlayer implements CollidingObject {
         }
     }
 
+    // if it's outside screen, make it appear on the other side of the screen
     private checkEdges(width: number, height: number): void {
         const r = this.size
 
@@ -338,9 +359,12 @@ export class ServerPlayer implements CollidingObject {
     }
 
     checkCollidedWith(...othersArray: CollidingObject[][]): void {
-        if (!this.isInvincible) {
-            Utils.checkCollidedWith(this, othersArray)
+        // if it's invincible, it does not collide with anything
+        if (this.isInvincible) {
+            return
         }
+
+        Utils.checkCollidedWith(this, othersArray)
     }
 
     isCollisionTarget(other: CollidingObject): boolean {
@@ -369,7 +393,9 @@ export class ServerPlayer implements CollidingObject {
     }
 }
 
+// keep track of bullets onscreen and bullets offscreen (i.e. recycled bullets) to reuse bullet instances
 class BulletHouse {
+    // recycledBullets are offscreen bullets
     private readonly recycledBullets: ServerBullet[] = []
     readonly bullets: ServerBullet[] = []
 
@@ -393,7 +419,10 @@ class BulletHouse {
         let i = bullets.length
         while (i--) {
             const bullet = bullets[i]
+            // update position of onscreen bullets
             bullet.update(width, height)
+
+            // if bullet went offscreen, recycle it
             if (bullet.needsToBeRecycled) {
                 bullet.prepareRecycle()
                 recycledBullets.push(bullet)
@@ -476,6 +505,7 @@ export class ServerBullet implements CollidingObject {
             this.needsToBeRecycled = x > width || x < 0 || y > height || y < 0
         }
 
+        // update dtoObject
         const dto = this.dtoObject
         dto.x = x
         dto.y = y
@@ -484,6 +514,7 @@ export class ServerBullet implements CollidingObject {
     }
 
     prepareRecycle(): void {
+        // send it to wonderland
         this.x = -1000
         this.y = -1000
         this.heading = 0
@@ -492,6 +523,8 @@ export class ServerBullet implements CollidingObject {
         this.needsToBeRecycled = false
     }
 
+    // bullet itself does not check collision.
+    // other objects check collision with bullets
     checkCollidedWith(...othersArray: CollidingObject[][]): void {
         // no need to implement
     }
@@ -508,8 +541,8 @@ export class ServerBullet implements CollidingObject {
 }
 
 export class ServerAsteroid implements CollidingObject {
-    static readonly vertexSize_big = 10
-    static readonly vertexSize_small = 5
+    static readonly bigAsteroidVertexCount = 10
+    static readonly smallAsteroidVertexCount = 5
 
     readonly id: string = uuid()
     readonly maxCollidingDistance: number
@@ -534,8 +567,8 @@ export class ServerAsteroid implements CollidingObject {
 
     static createPieceOf(width: number, height: number, bigAsteroid: ServerAsteroid): ServerAsteroid {
         const asteroid = new ServerAsteroid(width, height, false, bigAsteroid.gameEventsHandler)
-        asteroid.x = bigAsteroid.x + Utils.map(Math.random(), 0, 1, -10, 10)
-        asteroid.y = bigAsteroid.y + Utils.map(Math.random(), 0, 1, -10, 10)
+        asteroid.x = bigAsteroid.x + Utils.map(Math.random(), 0, 1, -20, 20)
+        asteroid.y = bigAsteroid.y + Utils.map(Math.random(), 0, 1, -20, 20)
         asteroid.needNewTarget = false
         asteroid.velocity.x = Utils.map(Math.random(), 0, 1, -1, 1)
         asteroid.velocity.y = Utils.map(Math.random(), 0, 1, -1, 1)
@@ -547,13 +580,14 @@ export class ServerAsteroid implements CollidingObject {
         this.setRandomSpawnPoint(width, height)
         this.isBig = isBig
 
+        // big and small asteroid differ in size, speed etc
         if (isBig) {
             this.rotationSpeed = Utils.map(Math.random(), 0, 1, 0.01, 0.03)
             this.speed = Utils.map(Math.random(), 0, 1, 1, 2)
             this.maxCollidingDistance = Utils.randInt(80, 100)
             this.minCollidingDistance = Utils.randInt(40, 60)
 
-            const vertexCount = ServerAsteroid.vertexSize_big
+            const vertexCount = ServerAsteroid.bigAsteroidVertexCount
             for (let i = 0; i < vertexCount; i++) {
                 const angle = Utils.map(i, 0, vertexCount, 0, Constants.TWO_PI)
                 const r = Utils.randInt(this.minCollidingDistance, this.maxCollidingDistance)
@@ -567,7 +601,7 @@ export class ServerAsteroid implements CollidingObject {
             this.maxCollidingDistance = Utils.randInt(40, 60)
             this.minCollidingDistance = Utils.randInt(10, 30)
 
-            const vertexCount = ServerAsteroid.vertexSize_small
+            const vertexCount = ServerAsteroid.smallAsteroidVertexCount
             for (let i = 0; i < vertexCount; i++) {
                 const angle = Utils.map(i, 0, vertexCount, 0, Constants.TWO_PI)
                 const r = Utils.randInt(this.minCollidingDistance, this.maxCollidingDistance)
@@ -589,6 +623,7 @@ export class ServerAsteroid implements CollidingObject {
     }
 
     setTarget(x: number, y: number): void {
+        // small asteroid is a little faster than big one
         if (this.isBig) {
             this.speed = Utils.map(Math.random(), 0, 1, 1, 2)
         } else {
@@ -632,6 +667,7 @@ export class ServerAsteroid implements CollidingObject {
                 || y - size > height + outsideThreshold || y + size < -outsideThreshold
         }
 
+        // update dtoObject
         const dto = this.dtoObject
         dto.x = x
         dto.y = y
@@ -654,6 +690,5 @@ export class ServerAsteroid implements CollidingObject {
             this.gameEventsHandler.bulletKilledAsteroid(<ServerBullet>other, this)
         }
     }
-
 
 }
