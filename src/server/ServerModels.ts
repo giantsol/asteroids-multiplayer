@@ -7,7 +7,24 @@ import Victor = require("victor")
 import uuid = require("uuid")
 
 export interface DomainSocket extends Socket {
-    me: ServerPlayer
+    me: ServerPlayer | null
+}
+
+export interface GameEventsHandler {
+    bulletKilledPlayer(bullet: ServerBullet, player: ServerPlayer): void
+    bulletKilledAsteroid(bullet: ServerBullet, asteroid: ServerAsteroid): void
+    asteroidKilledPlayer(asteroid: ServerAsteroid, player: ServerPlayer): void
+}
+
+export interface CollidingObject {
+    x: number
+    y: number
+    vertices: number[][]
+    minCollidingDistance: number
+    maxCollidingDistance: number
+    checkCollidedWith(...othersArray: CollidingObject[][]): void
+    isCollisionTarget(other: CollidingObject): boolean
+    processCollidedWith(other: CollidingObject): void
 }
 
 export class ServerGameData {
@@ -24,11 +41,13 @@ export class ServerGameData {
 
     readonly dtoObject: GameDataDTO
 
-    constructor() {
+    private readonly gameEventsHandler: GameEventsHandler
+
+    constructor(gameEventsHandler: GameEventsHandler) {
         const w = this.width
         const h = this.height
         for (let i = 0; i < this.minBigAsteroidCount; i++) {
-            this.asteroids.push(new ServerAsteroid(w, h, true))
+            this.asteroids.push(new ServerAsteroid(w, h, true, gameEventsHandler))
             this.curBigAsteroidsCount++
         }
 
@@ -39,6 +58,8 @@ export class ServerGameData {
             bullets: this.bulletHouse.bullets.map(bullet => bullet.dtoObject),
             asteroids: this.asteroids.map(value => value.dtoObject)
         }
+
+        this.gameEventsHandler = gameEventsHandler
     }
 
     update(): void {
@@ -68,6 +89,27 @@ export class ServerGameData {
             }
         }
 
+        const bullets = bulletHouse.bullets
+        let i = asteroids.length
+        while (i--) {
+            asteroids[i].checkCollidedWith(bullets)
+        }
+
+        i = players.length
+        while (i--) {
+            players[i].checkCollidedWith(asteroids, bullets)
+        }
+
+        const neededBigAsteroidCount = Math.max(this.minBigAsteroidCount, players.length * this.bigAsteroidCountMultiplesOfPlayer)
+        if (this.curBigAsteroidsCount < neededBigAsteroidCount) {
+            const count = neededBigAsteroidCount - this.curBigAsteroidsCount
+            const gameEventsHandler = this.gameEventsHandler
+            for (let i = 0; i < count; i++) {
+                asteroids.push(new ServerAsteroid(width, height, true, gameEventsHandler))
+                this.curBigAsteroidsCount++
+            }
+        }
+
         const dto = this.dtoObject
         dto.players = this.players.map(value => value.dtoObject)
         dto.bullets = this.bulletHouse.bullets.map(bullet => bullet.dtoObject)
@@ -76,20 +118,59 @@ export class ServerGameData {
 
     addPlayer(id: string, name: string, color: RGBColor): ServerPlayer {
         const newPlayer = new ServerPlayer(id, name, color, this.width / 2, this.height / 2,
-            this.bulletHouse)
+            this.bulletHouse, this.gameEventsHandler)
         this.players.push(newPlayer)
         return newPlayer
     }
 
-    removePlayer(player: ServerPlayer): void {
-        const index = this.players.findIndex(value => player.id === value.id)
+    removePlayerById(id: string): ServerPlayer | null {
+        const players = this.players
+        const index = players.findIndex(value => id === value.id)
         if (index >= 0) {
-            this.players.splice(index, 1)
+            const removingPlayer = players[index]
+            players.splice(index, 1)
+            return removingPlayer
+        } else {
+            return null
         }
+    }
+
+    breakAsteroid(asteroid: ServerAsteroid): void {
+        const removed = this.removeAsteroidById(asteroid.id)
+        if (removed && removed.isBig) {
+            const width = this.width
+            const height = this.height
+            this.asteroids.push(
+                ServerAsteroid.createPieceOf(width, height, removed),
+                ServerAsteroid.createPieceOf(width, height, removed),
+                ServerAsteroid.createPieceOf(width, height, removed),
+            )
+            this.curBigAsteroidsCount--
+        }
+    }
+
+    private removeAsteroidById(id: string): ServerAsteroid | null {
+        const asteroids = this.asteroids
+        const index = asteroids.findIndex(value => id === value.id)
+        if (index >= 0) {
+            const removing = asteroids[index]
+            asteroids.splice(index, 1)
+            return removing
+        } else {
+            return null
+        }
+    }
+
+    getPlayerWithId(id: string): ServerPlayer | null {
+        return this.players.find(player => player.id === id) || null
+    }
+
+    recycleBulletById(id: string): void {
+        this.bulletHouse.recycleBulletById(id)
     }
 }
 
-export class ServerPlayer {
+export class ServerPlayer implements CollidingObject {
     private static readonly maxSpeed = 8
 
     readonly id: string
@@ -99,7 +180,7 @@ export class ServerPlayer {
     x: number
     y: number
     private heading: number = Constants.HALF_PI
-    private readonly vertices: number[][] = []
+    readonly vertices: number[][] = []
     private showTail: boolean = false
 
     private readonly velocity = new Victor(0, 0)
@@ -118,8 +199,13 @@ export class ServerPlayer {
 
     readonly dtoObject: PlayerDTO
 
+    private readonly gameEventsHandler: GameEventsHandler
+
+    readonly maxCollidingDistance: number = 21.21
+    readonly minCollidingDistance: number = 6.7
+
     constructor(id: string, name: string, color: RGBColor, x: number, y: number,
-                bulletHouse: BulletHouse) {
+                bulletHouse: BulletHouse, gameEventsHandler: GameEventsHandler) {
         this.id = id
         this.name = name
         this.color = color
@@ -142,6 +228,8 @@ export class ServerPlayer {
             vertices: this.vertices,
             showTail: this.showTail
         }
+
+        this.gameEventsHandler = gameEventsHandler
     }
 
     applyInput(input: PlayerInputDTO): void {
@@ -217,6 +305,28 @@ export class ServerPlayer {
             this.y = height + r
         }
     }
+
+    checkCollidedWith(...othersArray: CollidingObject[][]): void {
+        Utils.checkCollidedWith(this, othersArray)
+    }
+
+    isCollisionTarget(other: CollidingObject): boolean {
+        if (other instanceof ServerBullet && other.firerId !== this.id && !other.needsToBeRecycled) {
+            return true
+        } else if (other instanceof ServerAsteroid) {
+            return true
+        }
+        return false
+    }
+
+    processCollidedWith(other: CollidingObject): void {
+        if (other instanceof ServerBullet) {
+            this.gameEventsHandler.bulletKilledPlayer(<ServerBullet>other, this)
+        } else if (other instanceof ServerAsteroid) {
+            this.gameEventsHandler.asteroidKilledPlayer(<ServerAsteroid>other, this)
+        }
+    }
+
 }
 
 class BulletHouse {
@@ -252,19 +362,29 @@ class BulletHouse {
         }
     }
 
+    recycleBulletById(id: string): void {
+        const index = this.bullets.findIndex(bullet => bullet.id === id)
+        if (index >= 0) {
+            const b = this.bullets[index]
+            b.prepareRecycle()
+            this.recycledBullets.push(b)
+            this.bullets.splice(index, 1)
+        }
+    }
+
 }
 
-export class ServerBullet {
+export class ServerBullet implements CollidingObject {
     private static readonly speed = 10
 
-    private readonly id: string = uuid()
-    private readonly maxSize: number = 5
-    private readonly vertices: number[][] = [[0, -this.maxSize], [0, this.maxSize]]
-    private x: number = 0
-    private y: number = 0
+    readonly id: string = uuid()
+    private readonly size: number = 5
+    readonly vertices: number[][] = [[0, -this.size], [0, this.size]]
+    x: number = 0
+    y: number = 0
     private heading: number = 0
 
-    private firerId: string | null = null
+    firerId: string | null = null
     private readonly velocity = new Victor(0, 0)
     private color = { r: 255, g: 255, b: 255 }
 
@@ -278,6 +398,9 @@ export class ServerBullet {
         vertices: this.vertices,
         color: this.color
     }
+
+    readonly maxCollidingDistance: number = this.size
+    readonly minCollidingDistance: number = 0
 
     setInitValues(firerId: string, x: number, y: number, heading: number, color: RGBColor): void {
         this.firerId = firerId
@@ -314,15 +437,28 @@ export class ServerBullet {
         this.needsToBeRecycled = false
     }
 
+    checkCollidedWith(...othersArray: CollidingObject[][]): void {
+        // no need to implement
+    }
+
+    isCollisionTarget(other: CollidingObject): boolean {
+        // no need to implement
+        return false;
+    }
+
+    processCollidedWith(other: CollidingObject): void {
+        // no need to implement
+    }
+
 }
 
-export class ServerAsteroid {
+export class ServerAsteroid implements CollidingObject {
     static readonly vertexSize_big = 10
     static readonly vertexSize_small = 5
 
     readonly id: string = uuid()
-    readonly maxSize: number
-    readonly minSize: number
+    readonly maxCollidingDistance: number
+    readonly minCollidingDistance: number
     readonly vertices: number[][] = []
     x!: number
     y!: number
@@ -339,20 +475,33 @@ export class ServerAsteroid {
 
     readonly dtoObject: AsteroidDTO
 
-    constructor(width: number, height: number, isBig: boolean) {
+    private readonly gameEventsHandler: GameEventsHandler
+
+    static createPieceOf(width: number, height: number, bigAsteroid: ServerAsteroid): ServerAsteroid {
+        const asteroid = new ServerAsteroid(width, height, false, bigAsteroid.gameEventsHandler)
+        asteroid.x = bigAsteroid.x + Utils.map(Math.random(), 0, 1, -10, 10)
+        asteroid.y = bigAsteroid.y + Utils.map(Math.random(), 0, 1, -10, 10)
+        asteroid.needNewTarget = false
+        asteroid.velocity.x = Utils.map(Math.random(), 0, 1, -1, 1)
+        asteroid.velocity.y = Utils.map(Math.random(), 0, 1, -1, 1)
+        asteroid.velocity.norm().multiplyScalar(asteroid.speed)
+        return asteroid
+    }
+
+    constructor(width: number, height: number, isBig: boolean, gameEventsHandler: GameEventsHandler) {
         this.setRandomSpawnPoint(width, height)
         this.isBig = isBig
 
         if (isBig) {
             this.rotationSpeed = Utils.map(Math.random(), 0, 1, 0.01, 0.03)
             this.speed = Utils.map(Math.random(), 0, 1, 1, 2)
-            this.maxSize = Utils.randInt(80, 100)
-            this.minSize = Utils.randInt(40, 60)
+            this.maxCollidingDistance = Utils.randInt(80, 100)
+            this.minCollidingDistance = Utils.randInt(40, 60)
 
             const vertexCount = ServerAsteroid.vertexSize_big
             for (let i = 0; i < vertexCount; i++) {
                 const angle = Utils.map(i, 0, vertexCount, 0, Constants.TWO_PI)
-                const r = Utils.randInt(this.minSize, this.maxSize)
+                const r = Utils.randInt(this.minCollidingDistance, this.maxCollidingDistance)
                 const x = r * Math.cos(angle)
                 const y = r * Math.sin(angle)
                 this.vertices.push([x, y])
@@ -360,13 +509,13 @@ export class ServerAsteroid {
         } else {
             this.rotationSpeed = Utils.map(Math.random(), 0, 1, 0.05, 0.07)
             this.speed = Utils.map(Math.random(), 0, 1, 1.5, 2.5)
-            this.maxSize = Utils.randInt(40, 60)
-            this.minSize = Utils.randInt(10, 30)
+            this.maxCollidingDistance = Utils.randInt(40, 60)
+            this.minCollidingDistance = Utils.randInt(10, 30)
 
             const vertexCount = ServerAsteroid.vertexSize_small
             for (let i = 0; i < vertexCount; i++) {
                 const angle = Utils.map(i, 0, vertexCount, 0, Constants.TWO_PI)
-                const r = Utils.randInt(this.minSize, this.maxSize)
+                const r = Utils.randInt(this.minCollidingDistance, this.maxCollidingDistance)
                 const x = r * Math.cos(angle)
                 const y = r * Math.sin(angle)
                 this.vertices.push([x, y])
@@ -380,6 +529,8 @@ export class ServerAsteroid {
             rotation: this.rotation,
             vertices: this.vertices
         }
+
+        this.gameEventsHandler = gameEventsHandler
     }
 
     setTarget(x: number, y: number): void {
@@ -418,7 +569,7 @@ export class ServerAsteroid {
 
         const x = this.x
         const y = this.y
-        const size = this.maxSize
+        const size = this.maxCollidingDistance
         const outsideThreshold = this.outsideThreshold
 
         if (!this.needNewTarget) {
@@ -431,5 +582,23 @@ export class ServerAsteroid {
         dto.y = y
         dto.rotation = this.rotation
     }
+
+    checkCollidedWith(...othersArray: CollidingObject[][]): void {
+        Utils.checkCollidedWith(this, othersArray)
+    }
+
+    isCollisionTarget(other: CollidingObject): boolean {
+        if (other instanceof ServerBullet && !other.needsToBeRecycled) {
+            return true
+        }
+        return false
+    }
+
+    processCollidedWith(other: CollidingObject): void {
+        if (other instanceof ServerBullet) {
+            this.gameEventsHandler.bulletKilledAsteroid(<ServerBullet>other, this)
+        }
+    }
+
 
 }

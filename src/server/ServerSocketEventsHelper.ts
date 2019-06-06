@@ -5,7 +5,15 @@ import {
     DisconnectedEvent,
     DisconnectedEventCallback,
     GameDataEvent,
-    LoggedInEvent, PlayerInputEvent, PlayerInputEventCallback,
+    KilledByAsteroidEvent,
+    KilledByPlayerEvent,
+    LoggedInEvent,
+    NewPlayerJoinedEvent,
+    OtherPlayerKilledByAsteroidEvent,
+    OtherPlayerKilledByPlayerEvent,
+    PlayerInputEvent,
+    PlayerInputEventCallback,
+    PlayerLeftEvent,
     TryLoggingInEvent,
     TryLoggingInEventCallback
 } from "../shared/SocketEvents"
@@ -35,6 +43,22 @@ export class ServerSocketEventsHelper {
 
     public static sendLoggedInEvent(socket: Socket, player: PlayerDTO): void {
         socket.emit(LoggedInEvent.key, ...LoggedInEvent.emitterParams(player))
-        // socket.broadcast.emit(NewPlayerJoinedEvent.key, ...NewPlayerJoinedEvent.emitterParams(player))
+        socket.broadcast.emit(NewPlayerJoinedEvent.key, ...NewPlayerJoinedEvent.emitterParams(player))
+    }
+
+    public static sendKilledByAsteroidEvent(socket: Socket, killedPlayer: PlayerDTO): void {
+        socket.emit(KilledByAsteroidEvent.key, ...KilledByAsteroidEvent.emitterParams(killedPlayer))
+        socket.broadcast.emit(OtherPlayerKilledByAsteroidEvent.key,
+            ...OtherPlayerKilledByAsteroidEvent.emitterParams(killedPlayer))
+    }
+
+    public static sendKilledByPlayerEvent(socket: Socket, killer: PlayerDTO, killed: PlayerDTO): void {
+        socket.emit(KilledByPlayerEvent.key, ...KilledByPlayerEvent.emitterParams(killer, killed))
+        socket.broadcast.emit(OtherPlayerKilledByPlayerEvent.key,
+            ...OtherPlayerKilledByPlayerEvent.emitterParams(killer, killed))
+    }
+
+    public static sendPlayerLeftEvent(socket: Socket, player: PlayerDTO): void {
+        socket.broadcast.emit(PlayerLeftEvent.key, ...PlayerLeftEvent.emitterParams(player))
     }
 }

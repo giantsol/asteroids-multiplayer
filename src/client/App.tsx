@@ -56,7 +56,13 @@ class App extends React.Component<Props, State> implements P5Functions {
         this.onAnimationFrame = this.onAnimationFrame.bind(this)
         this.onWindowResizeEvent = this.onWindowResizeEvent.bind(this)
         this.onGameDataEvent = this.onGameDataEvent.bind(this)
+        this.onNewPlayerJoinedEvent = this.onNewPlayerJoinedEvent.bind(this)
+        this.onKilledByAsteroidEvent = this.onKilledByAsteroidEvent.bind(this)
+        this.onOtherPlayerKilledByAsteroidEvent = this.onOtherPlayerKilledByAsteroidEvent.bind(this)
+        this.onKilledByPlayerEvent = this.onKilledByPlayerEvent.bind(this)
+        this.onOtherPlayerKilledByPlayerEvent = this.onOtherPlayerKilledByPlayerEvent.bind(this)
         this.onLoggedInEvent = this.onLoggedInEvent.bind(this)
+        this.onPlayerLeftEvent = this.onPlayerLeftEvent.bind(this)
         this.sendInputLoop = this.sendInputLoop.bind(this)
         this.onKeyDownEvent = this.onKeyDownEvent.bind(this)
         this.onKeyUpEvent = this.onKeyUpEvent.bind(this)
@@ -92,6 +98,12 @@ class App extends React.Component<Props, State> implements P5Functions {
             const socket = this.socket
             ClientSocketEventsHelper.subscribeLoggedInEvent(socket, this.onLoggedInEvent)
             ClientSocketEventsHelper.subscribeGameDataEvent(socket, this.onGameDataEvent)
+            ClientSocketEventsHelper.subscribeNewPlayerJoinedEvent(socket, this.onNewPlayerJoinedEvent)
+            ClientSocketEventsHelper.subscribeKilledByAsteroidEvent(socket, this.onKilledByAsteroidEvent)
+            ClientSocketEventsHelper.subscribeOtherPlayerKilledByAsteroidEvent(socket, this.onOtherPlayerKilledByAsteroidEvent)
+            ClientSocketEventsHelper.subscribeKilledByPlayerEvent(socket, this.onKilledByPlayerEvent)
+            ClientSocketEventsHelper.subscribeOtherPlayerKilledByPlayerEvent(socket, this.onOtherPlayerKilledByPlayerEvent)
+            ClientSocketEventsHelper.subscribePlayerLeftEvent(socket, this.onPlayerLeftEvent)
 
             document.addEventListener('keydown', this.onKeyDownEvent)
             document.addEventListener('keyup', this.onKeyUpEvent)
@@ -196,6 +208,34 @@ class App extends React.Component<Props, State> implements P5Functions {
     private onGameDataEvent(gameData: GameDataDTO): void {
         this.currentGameData.update(gameData)
         this.updateCanvasSizeIfChanged(gameData)
+    }
+
+    private onNewPlayerJoinedEvent(player: PlayerDTO): void {
+        this.props.enqueueSnackbar(`${player.name} joined game!`,
+            { variant: 'success', autoHideDuration: 1500 })
+    }
+
+    private onKilledByAsteroidEvent(player: PlayerDTO): void {
+        this.setState({myId: null})
+    }
+
+    private onOtherPlayerKilledByAsteroidEvent(player: PlayerDTO): void {
+        this.props.enqueueSnackbar(`\u2604 \u2694 ${player.name}`,
+            { variant: 'info', autoHideDuration: 1500 })
+    }
+
+    private onKilledByPlayerEvent(killer: PlayerDTO, killed: PlayerDTO): void {
+        this.setState({myId: null})
+    }
+
+    private onOtherPlayerKilledByPlayerEvent(killer: PlayerDTO, killed: PlayerDTO): void {
+        this.props.enqueueSnackbar(`${killer.name} \u2694 ${killed.name}`,
+            { variant: 'info', autoHideDuration: 1500 })
+    }
+
+    private onPlayerLeftEvent(playerDTO: PlayerDTO): void {
+        this.props.enqueueSnackbar(`${playerDTO.name} left game!`,
+            { variant: 'warning', autoHideDuration: 1500 })
     }
 
     private updateCanvasSizeIfChanged(newData: GameDataDTO): void {

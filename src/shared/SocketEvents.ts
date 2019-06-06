@@ -43,3 +43,51 @@ export class PlayerInputEvent {
         return [playerInput]
     }
 }
+
+export type NewPlayerJoinedEventCallback = (player: PlayerDTO) => void
+export class NewPlayerJoinedEvent {
+    static readonly key = "new_player_joined"
+    static emitterParams(player: PlayerDTO): any[] {
+        return [player]
+    }
+}
+
+export type KilledByAsteroidEventCallback = (killedPlayer: PlayerDTO) => void
+export class KilledByAsteroidEvent {
+    static readonly key = "killed_by_asteroid"
+    static emitterParams(killedPlayer: PlayerDTO): any[] {
+        return [killedPlayer]
+    }
+}
+
+export type OtherPlayerKilledByAsteroidEventCallback = (killedPlayer: PlayerDTO) => void
+export class OtherPlayerKilledByAsteroidEvent {
+    static readonly key = "other_player_killed_by_asteroid"
+    static emitterParams(killedPlayer: PlayerDTO): any[] {
+        return [killedPlayer]
+    }
+}
+
+export type KilledByPlayerEventCallback = (killer: PlayerDTO, killed: PlayerDTO) => void
+export class KilledByPlayerEvent {
+    static readonly key = "killed_by_player"
+    static emitterParams(killer: PlayerDTO, killed: PlayerDTO): any[] {
+        return [killer, killed]
+    }
+}
+
+export type OtherPlayerKilledByPlayerEventCallback = (killer: PlayerDTO, killed: PlayerDTO) => void
+export class OtherPlayerKilledByPlayerEvent {
+    static readonly key = "other_player_killed_by_player"
+    static emitterParams(killer: PlayerDTO, killed: PlayerDTO): any[] {
+        return [killer, killed]
+    }
+}
+
+export type PlayerLeftEventCallback = (player: PlayerDTO) => void
+export class PlayerLeftEvent {
+    static readonly key = "player_left"
+    static emitterParams(player: PlayerDTO): any[] {
+        return [player]
+    }
+}
