@@ -127,6 +127,7 @@ class Server implements GameEventsHandler {
             const firer = gameData.getPlayerWithId(bullet.firerId)
             if (firer) {
                 gameData.breakAsteroid(asteroid)
+                firer.increaseAsteroidPoint()
             }
         }
 
@@ -146,6 +147,7 @@ class Server implements GameEventsHandler {
                         killedPlayerSocket.me = null
                         ServerSocketEventsHelper.sendKilledByPlayerEvent(killedPlayerSocket, firer.dtoObject, killedPlayer.dtoObject)
                     }
+                    firer.increaseKillingPoint()
                 }
             }
         }

@@ -208,6 +208,9 @@ export class ServerPlayer implements CollidingObject {
     readonly maxCollidingDistance: number = 21.21
     readonly minCollidingDistance: number = 6.7
 
+    private asteroidPoints = 0
+    private killingPoints = 0
+
     constructor(id: string, name: string, color: RGBColor, x: number, y: number,
                 bulletHouse: BulletHouse, gameEventsHandler: GameEventsHandler) {
         this.id = id
@@ -230,7 +233,9 @@ export class ServerPlayer implements CollidingObject {
             size: this.size,
             heading: this.heading,
             vertices: this.vertices,
-            showTail: this.showTail
+            showTail: this.showTail,
+            asteroidPoints: this.asteroidPoints,
+            killingPoints: this.killingPoints
         }
 
         this.gameEventsHandler = gameEventsHandler
@@ -284,6 +289,8 @@ export class ServerPlayer implements CollidingObject {
         dto.y = this.y
         dto.heading = this.heading
         dto.showTail = this.showTail
+        dto.asteroidPoints = this.asteroidPoints
+        dto.killingPoints = this.killingPoints
     }
 
     private updateBoostingForce(isBoosting: boolean): void {
@@ -331,6 +338,13 @@ export class ServerPlayer implements CollidingObject {
         }
     }
 
+    increaseAsteroidPoint(): void {
+        this.asteroidPoints++
+    }
+
+    increaseKillingPoint(): void {
+        this.killingPoints++
+    }
 }
 
 class BulletHouse {

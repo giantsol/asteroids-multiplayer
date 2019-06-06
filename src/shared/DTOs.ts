@@ -19,6 +19,8 @@ export interface PlayerDTO {
     heading: number
     vertices: number[][]
     showTail: boolean
+    asteroidPoints: number
+    killingPoints: number
 }
 
 export interface PlayerInputDTO {

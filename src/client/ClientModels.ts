@@ -18,6 +18,14 @@ export class ClientGameData {
 
     private readonly minimapScaleFactor = 0.2
 
+    private readonly pointsVerticalSpacing = 200
+    private readonly pointsHorizontalSpacing1 = 600
+    private readonly pointsHorizontalSpacing2 = 400
+    private readonly pointsTextSize = 100
+    private readonly labelNickname = 'Nickname'
+    private readonly labelAsteroidPoint = 'Asteroid'
+    private readonly labelKillingPoint = 'PK'
+
     constructor(p5: P5Functions) {
         this.p5 = p5
     }
@@ -89,12 +97,51 @@ export class ClientGameData {
             player.drawMinimapVersion(this.minimapScaleFactor, player.id === (me && me.id))
         }
         p5.restore()
+
+        // player points
+        const players = this.players
+        players.sort((a, b) => (b.asteroidPoints + b.killingPoints * 2) - (a.asteroidPoints + a.killingPoints * 2))
+        p5.save()
+        p5.translate(400, 200)
+        const verticalSpacing = this.pointsVerticalSpacing
+        const horizontalSpacing1 = this.pointsHorizontalSpacing1
+        const horizontalSpacing2 = this.pointsHorizontalSpacing2
+        const textSize = this.pointsTextSize
+        const count = Math.min(players.length, 7)
+        if (count > 0) {
+            // draw header
+            p5.save()
+            p5.fill(255)
+            p5.text(this.labelNickname, 0, 0, textSize)
+            p5.translate(horizontalSpacing1, 0)
+            p5.text(this.labelAsteroidPoint, 0, 0, textSize)
+            p5.translate(horizontalSpacing2, 0)
+            p5.text(this.labelKillingPoint, 0, 0, textSize)
+            p5.restore()
+        }
+        for (let i = 0; i < count; i++) {
+            const player = players[i]
+            p5.save()
+            p5.translate(0, verticalSpacing * (i + 1))
+            if (i === 0) {
+                p5.fill(255, 0, 0)
+            } else {
+                p5.fill(255)
+            }
+            p5.text(player.name, 0, 0, textSize)
+            p5.translate(horizontalSpacing1, 0)
+            p5.text(`${player.asteroidPoints}`, 0, 0, textSize)
+            p5.translate(horizontalSpacing2, 0)
+            p5.text(`${player.killingPoints}`, 0, 0, textSize)
+            p5.restore()
+        }
+        p5.restore()
     }
 }
 
 export class ClientPlayer {
     readonly id: string
-    private readonly name: string
+    readonly name: string
     private readonly size: number
     private readonly vertices: number[][]
     private readonly nameOffset: number
@@ -107,6 +154,9 @@ export class ClientPlayer {
     y: number
     private heading: number
     private showTail: boolean
+
+    asteroidPoints: number
+    killingPoints: number
 
     private readonly p5: P5Functions
 
@@ -124,6 +174,9 @@ export class ClientPlayer {
         this.heading = dto.heading
         this.showTail = dto.showTail
 
+        this.asteroidPoints = dto.asteroidPoints
+        this.killingPoints = dto.killingPoints
+
         this.p5 = p5
     }
 
@@ -133,6 +186,8 @@ export class ClientPlayer {
         this.color = newData.color
         this.heading = newData.heading
         this.showTail = newData.showTail
+        this.asteroidPoints = newData.asteroidPoints
+        this.killingPoints = newData.killingPoints
     }
 
     draw(): void {
