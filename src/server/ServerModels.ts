@@ -179,7 +179,8 @@ export class ServerPlayer implements CollidingObject {
 
     readonly id: string
     private readonly name: string
-    private readonly color: RGBColor
+    private readonly origColor: RGBColor
+    private readonly currentColor: RGBColor
     private readonly size: number = 15
     x: number
     y: number
@@ -211,11 +212,18 @@ export class ServerPlayer implements CollidingObject {
     private asteroidPoints = 0
     private killingPoints = 0
 
+    private invincibleCountdown = 255
+
+    get isInvincible(): boolean {
+        return this.invincibleCountdown > 0
+    }
+
     constructor(id: string, name: string, color: RGBColor, x: number, y: number,
                 bulletHouse: BulletHouse, gameEventsHandler: GameEventsHandler) {
         this.id = id
         this.name = name
-        this.color = color
+        this.origColor = { r: color.r, g: color.g, b: color.b }
+        this.currentColor = color
         this.x = x
         this.y = y
 
@@ -227,7 +235,7 @@ export class ServerPlayer implements CollidingObject {
         this.dtoObject = {
             id: this.id,
             name: this.name,
-            color: this.color,
+            color: this.currentColor,
             x: this.x,
             y: this.y,
             size: this.size,
@@ -278,17 +286,34 @@ export class ServerPlayer implements CollidingObject {
             if (this.fireDelta > this.fireInterval) {
                 this.then = this.now
 
-                this.bulletHouse.fireBullet(this.id, this.x, this.y, this.heading, this.color)
+                this.bulletHouse.fireBullet(this.id, this.x, this.y, this.heading, this.origColor)
             }
         }
 
         this.showTail = this.velocity.magnitude() > 1
+
+        if (this.invincibleCountdown > 0) {
+            this.invincibleCountdown -= 1
+        }
+
+        const origColor = this.origColor
+        if (this.invincibleCountdown > 0) {
+            const countdown = this.invincibleCountdown
+            this.currentColor.r = Utils.randInt(Utils.map(countdown, 0, 255, origColor.r, 0), origColor.r)
+            this.currentColor.g = Utils.randInt(Utils.map(countdown, 0, 255, origColor.g, 0), origColor.g)
+            this.currentColor.b = Utils.randInt(Utils.map(countdown, 0, 255, origColor.b, 0), origColor.b)
+        } else {
+            this.currentColor.r = origColor.r
+            this.currentColor.g = origColor.g
+            this.currentColor.b = origColor.b
+        }
 
         const dto = this.dtoObject
         dto.x = this.x
         dto.y = this.y
         dto.heading = this.heading
         dto.showTail = this.showTail
+        dto.color = this.currentColor
         dto.asteroidPoints = this.asteroidPoints
         dto.killingPoints = this.killingPoints
     }
@@ -318,7 +343,9 @@ export class ServerPlayer implements CollidingObject {
     }
 
     checkCollidedWith(...othersArray: CollidingObject[][]): void {
-        Utils.checkCollidedWith(this, othersArray)
+        if (!this.isInvincible) {
+            Utils.checkCollidedWith(this, othersArray)
+        }
     }
 
     isCollisionTarget(other: CollidingObject): boolean {
