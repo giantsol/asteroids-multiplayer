@@ -71,6 +71,7 @@ class Server implements GameEventsHandler {
 
         if (socket.me) {
             this.gameData.removePlayerById(socket.me.id)
+            this.gameData.recycleBulletsByFirerId(socket.me.id)
             ServerSocketEventsHelper.sendPlayerLeftEvent(socket, socket.me.dtoObject)
         }
     }
@@ -109,6 +110,7 @@ class Server implements GameEventsHandler {
         const gameData = this.gameData
         const killedPlayer = gameData.removePlayerById(player.id)
         if (killedPlayer) {
+            gameData.recycleBulletsByFirerId(killedPlayer.id)
             const killedPlayerSocket = this.connectedSockets.find(socket => socket.id === killedPlayer.id)
             if (killedPlayerSocket) {
                 killedPlayerSocket.me = null
@@ -138,6 +140,7 @@ class Server implements GameEventsHandler {
             if (firer) {
                 const killedPlayer = gameData.removePlayerById(player.id)
                 if (killedPlayer) {
+                    gameData.recycleBulletsByFirerId(killedPlayer.id)
                     const killedPlayerSocket = this.connectedSockets.find(socket => socket.id === killedPlayer.id)
                     if (killedPlayerSocket) {
                         killedPlayerSocket.me = null

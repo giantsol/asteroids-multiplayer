@@ -168,6 +168,10 @@ export class ServerGameData {
     recycleBulletById(id: string): void {
         this.bulletHouse.recycleBulletById(id)
     }
+
+    recycleBulletsByFirerId(firerId: string): void {
+        this.bulletHouse.recycleBulletsByFirerId(firerId)
+    }
 }
 
 export class ServerPlayer implements CollidingObject {
@@ -369,6 +373,21 @@ class BulletHouse {
             b.prepareRecycle()
             this.recycledBullets.push(b)
             this.bullets.splice(index, 1)
+        }
+    }
+
+    recycleBulletsByFirerId(firerId: string): void {
+        const bullets = this.bullets
+        const recycled = this.recycledBullets
+
+        let i = bullets.length
+        while (i--) {
+            const bullet = bullets[i]
+            if (bullet.firerId === firerId) {
+                bullet.prepareRecycle()
+                recycled.push(bullet)
+                bullets.splice(i, 1)
+            }
         }
     }
 
