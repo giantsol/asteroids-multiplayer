@@ -206,8 +206,8 @@ class App extends React.Component<Props, State> implements P5Functions {
     }
 
     private onGameDataEvent(gameData: GameDataDTO): void {
-        this.currentGameData.update(gameData)
         this.updateCanvasSizeIfChanged(gameData)
+        this.currentGameData.update(gameData)
     }
 
     private onNewPlayerJoinedEvent(player: PlayerDTO): void {

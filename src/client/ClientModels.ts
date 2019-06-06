@@ -10,6 +10,14 @@ export class ClientGameData {
     private readonly bullets: ClientBullet[] = []
     readonly asteroids: ClientAsteroid[] = []
 
+    private readonly playerViewScaleRatio = 3.6
+    private playerViewMinX: number = 0
+    private playerViewMaxX: number = 0
+    private playerViewMinY: number = 0
+    private playerViewMaxY: number = 0
+
+    private readonly minimapScaleFactor = 0.2
+
     constructor(p5: P5Functions) {
         this.p5 = p5
     }
@@ -32,6 +40,11 @@ export class ClientGameData {
             (e, n) => e.update(n),
             n => new ClientAsteroid(n, this.p5)
         )
+
+        this.playerViewMinX = newData.width / 2 / this.playerViewScaleRatio
+        this.playerViewMaxX = newData.width - this.playerViewMinX
+        this.playerViewMinY = newData.height / 2 / this.playerViewScaleRatio
+        this.playerViewMaxY = newData.height - this.playerViewMinY
     }
 
     draw(myId: string | null): void {
@@ -39,6 +52,14 @@ export class ClientGameData {
         p5.background(0)
 
         p5.save()
+        const me = this.players.find(player => myId === player.id)
+        if (me) {
+            p5.translate(p5.width / 2, p5.height / 2)
+            p5.scale(this.playerViewScaleRatio)
+            const viewX = Math.min(Math.max(me.x, this.playerViewMinX), this.playerViewMaxX)
+            const viewY = Math.min(Math.max(me.y, this.playerViewMinY), this.playerViewMaxY)
+            p5.translate(-viewX, -viewY)
+        }
 
         for (let player of this.players) {
             player.draw()
@@ -52,6 +73,21 @@ export class ClientGameData {
             asteroid.draw()
         }
 
+        p5.restore()
+
+        // minimap
+        p5.save()
+        p5.translate(p5.width, p5.height)
+        const minimapWidth = p5.width * this.minimapScaleFactor
+        const minimapHeight = p5.height * this.minimapScaleFactor
+        p5.translate(-minimapWidth, -minimapHeight)
+        p5.fill(0)
+        p5.stroke(255)
+        p5.strokeWeight(8)
+        p5.rect(0, 0, minimapWidth, minimapHeight)
+        for (let player of this.players) {
+            player.drawMinimapVersion(this.minimapScaleFactor, player.id === (me && me.id))
+        }
         p5.restore()
     }
 }
@@ -67,8 +103,8 @@ export class ClientPlayer {
     private readonly tailMaxRotation = 3 * Constants.QUARTER_PI
 
     private color: RGBColor
-    private x: number
-    private y: number
+    x: number
+    y: number
     private heading: number
     private showTail: boolean
 
@@ -129,6 +165,25 @@ export class ClientPlayer {
             p5.rotate(Utils.map(Math.random(), 0, 1, this.tailMinRotation, this.tailMaxRotation))
             p5.line(0, 0, this.tailSize, 0)
             p5.restore()
+        }
+
+        p5.restore()
+    }
+
+    drawMinimapVersion(scaleFactor: number, isMe: boolean): void {
+        const p5 = this.p5
+        p5.save()
+        p5.translate(this.x * scaleFactor, this.y * scaleFactor)
+
+        const color = this.color
+        const size = this.size * scaleFactor * 12
+        p5.fill(color.r, color.g, color.b)
+        p5.stroke(color.r, color.g, color.b)
+        p5.ellipse(0, 0, size, size)
+
+        if (isMe) {
+            p5.fill(255, 0, 0)
+            p5.text('🌟', 0, 0, 80)
         }
 
         p5.restore()
