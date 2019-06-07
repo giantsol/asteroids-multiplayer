@@ -7,15 +7,14 @@ You can try it [here](https://natureofjandi.com)
 
 This project was built with React (ejected from [Create React App](https://github.com/facebook/create-react-app)), Typescript, Express and  WebSocket API.
 No third party physics library is used. 
-Though we can't use p5js with React, I made p5-alike function wrappers around Web Canvas API and used them instead of raw Canvas API.
-Cause p5 functions looked more familiar to me.
+Though we can't use p5js with React, I made p5-alike function wrappers around Web Canvas API and used them instead of raw Canvas API because p5 functions looked more familiar to me.
 
 You can build and run it yourself by doing so:
 ```
 git clone https://github.com/giantsol/asteroids-multiplayer.git
 cd asteroids-multiplayer
 npm install # install necessary packages
-npm start # thiss will start express server at localhost:3000
+npm start # this will start express server at localhost:3000
 ```
 
 ### Scripts:
