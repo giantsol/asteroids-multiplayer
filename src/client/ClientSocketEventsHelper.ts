@@ -1,6 +1,8 @@
 import {
     GameDataEvent,
-    GameDataEventCallback, KilledByAsteroidEvent, KilledByAsteroidEventCallback,
+    GameDataEventCallback,
+    KilledByAsteroidEvent,
+    KilledByAsteroidEventCallback,
     KilledByPlayerEvent,
     KilledByPlayerEventCallback,
     LoggedInEvent,
@@ -11,7 +13,9 @@ import {
     OtherPlayerKilledByAsteroidEventCallback,
     OtherPlayerKilledByPlayerEvent,
     OtherPlayerKilledByPlayerEventCallback,
-    PlayerInputEvent, PlayerLeftEvent, PlayerLeftEventCallback,
+    PlayerInputEvent,
+    PlayerLeftEvent,
+    PlayerLeftEventCallback,
     TryLoggingInEvent
 } from "../shared/SocketEvents"
 import {RGBColor} from "react-color"

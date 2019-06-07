@@ -10,6 +10,7 @@ export class ClientGameData {
     private readonly bullets: ClientBullet[] = []
     readonly asteroids: ClientAsteroid[] = []
 
+    // properties used for camera following player effect
     private readonly playerViewScaleRatio = 3.6
     private playerViewMinX: number = 0
     private playerViewMaxX: number = 0
@@ -18,6 +19,7 @@ export class ClientGameData {
 
     private readonly minimapScaleFactor = 0.2
 
+    // properties for displaying 'Points'
     private readonly pointsVerticalSpacing = 200
     private readonly pointsHorizontalSpacing1 = 600
     private readonly pointsHorizontalSpacing2 = 400
@@ -26,10 +28,14 @@ export class ClientGameData {
     private readonly labelAsteroidPoint = 'Asteroid'
     private readonly labelKillingPoint = 'PK'
 
+    private width = 0
+    private height = 0
+
     constructor(p5: P5Functions) {
         this.p5 = p5
     }
 
+    // update client data with new server data
     update(newData: GameDataDTO): void {
         Utils.updateArrayData(this.players, newData.players,
             (e, n) => e.id === n.id,
@@ -49,10 +55,15 @@ export class ClientGameData {
             n => new ClientAsteroid(n, this.p5)
         )
 
-        this.playerViewMinX = newData.width / 2 / this.playerViewScaleRatio
-        this.playerViewMaxX = newData.width - this.playerViewMinX
-        this.playerViewMinY = newData.height / 2 / this.playerViewScaleRatio
-        this.playerViewMaxY = newData.height - this.playerViewMinY
+        if (this.width != newData.width || this.height != newData.height) {
+            this.playerViewMinX = newData.width / 2 / this.playerViewScaleRatio
+            this.playerViewMaxX = newData.width - this.playerViewMinX
+            this.playerViewMinY = newData.height / 2 / this.playerViewScaleRatio
+            this.playerViewMaxY = newData.height - this.playerViewMinY
+
+            this.width = newData.width
+            this.height = newData.height
+        }
     }
 
     draw(myId: string | null): void {
@@ -60,13 +71,16 @@ export class ClientGameData {
         p5.background(0)
 
         p5.save()
+
+        // if 'I' am playing, keep me in the center of the canvas
+        // else, show the whole canvas
         const me = this.players.find(player => myId === player.id)
         if (me) {
             p5.translate(p5.width / 2, p5.height / 2)
             p5.scale(this.playerViewScaleRatio)
-            const viewX = Math.min(Math.max(me.x, this.playerViewMinX), this.playerViewMaxX)
-            const viewY = Math.min(Math.max(me.y, this.playerViewMinY), this.playerViewMaxY)
-            p5.translate(-viewX, -viewY)
+            const x = Math.min(Math.max(me.x, this.playerViewMinX), this.playerViewMaxX)
+            const y = Math.min(Math.max(me.y, this.playerViewMinY), this.playerViewMaxY)
+            p5.translate(-x, -y)
         }
 
         for (let player of this.players) {
@@ -83,7 +97,7 @@ export class ClientGameData {
 
         p5.restore()
 
-        // minimap
+        // draw minimap at bottom-right corner of the canvas
         p5.save()
         p5.translate(p5.width, p5.height)
         const minimapWidth = p5.width * this.minimapScaleFactor
@@ -98,7 +112,7 @@ export class ClientGameData {
         }
         p5.restore()
 
-        // player points
+        // draw player points at top-left corner of the canvas if more than one player exists
         const players = this.players
         players.sort((a, b) => (b.asteroidPoints + b.killingPoints * 2) - (a.asteroidPoints + a.killingPoints * 2))
         p5.save()
@@ -107,7 +121,8 @@ export class ClientGameData {
         const horizontalSpacing1 = this.pointsHorizontalSpacing1
         const horizontalSpacing2 = this.pointsHorizontalSpacing2
         const textSize = this.pointsTextSize
-        const count = Math.min(players.length, 7)
+        const count = Math.min(players.length, 7) // show max 7 players' points
+
         if (count > 0) {
             // draw header
             p5.save()
@@ -119,6 +134,7 @@ export class ClientGameData {
             p5.text(this.labelKillingPoint, 0, 0, textSize)
             p5.restore()
         }
+
         for (let i = 0; i < count; i++) {
             const player = players[i]
             p5.save()
@@ -145,6 +161,7 @@ export class ClientPlayer {
     private readonly size: number
     private readonly vertices: number[][]
     private readonly nameOffset: number
+
     private readonly tailSize: number
     private readonly tailMinRotation = Constants.QUARTER_PI
     private readonly tailMaxRotation = 3 * Constants.QUARTER_PI
@@ -261,8 +278,8 @@ export class ClientBullet {
         this.x = data.x
         this.y = data.y
         this.vertices = data.vertices
-        this.p5 = p5
         this.color = data.color
+        this.p5 = p5
     }
 
     update(data: BulletDTO) {
