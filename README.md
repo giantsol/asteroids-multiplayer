@@ -34,3 +34,20 @@ It updates game data at certain interval and sends it to connected sockets, with
 
 **Shared** package contains class/interface declarations used by both client and server, and also some utility functions.
 For instance, DTO (Data Transfer Object) and websocket events are declared here.
+
+### How it works
+
+This project uses very simple game mechanics. That is, it doesn't take into account some well-known multiplayer game methodologies such as input prediction and lag compensation.
+
+Client mainly does three things:
+- sends player input to the server approximately 60 times a second.
+- listens for server's game data and updates its copy accordingly.
+- draws the last received server data in ideally 60 fps.
+
+Server mainly does two things:
+- listens for clients' input data and updates game data accordingly.
+- runs game logic (e.g. updating positions, detecting collisions etc) approx 60 times a second and sends updated game data to all connected sockets.
+
+This architecture will inevitably introduce lags because client's game data will only be updated once it receives new server data, and server may respond slowly at any time. To compensate this, many multiplayer games use various methodologies like input prediction. However, I learned this very recently, unfortunately, and this project doesn't have them.
+
+If you're also interested in learning multiplayer game mechanics, I highly recommend [this blog](http://buildnewgames.com/real-time-multiplayer/).
