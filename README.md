@@ -1,9 +1,6 @@
 # Asteroids - Multiplayer
 
 This project is made with the purpose of studying [Nature Of Code](https://natureofcode.com/), and is a remix of [CodingTrain's Asteroids](https://github.com/CodingTrain/Asteroids) supporting **multiplayer**!
-You can try it [here](https://natureofjandi.com) 
-
-(Note: server I'm using is located at Asia and is cheap, so it will introduce lags in far regions).
 
 This project was built with React (ejected from [Create React App](https://github.com/facebook/create-react-app)), Typescript, Express and  WebSocket API.
 No third party physics library is used. 
