@@ -1,5 +1,7 @@
 # Asteroids - Multiplayer
 
+<img src="https://user-images.githubusercontent.com/4879766/101141837-30485200-3658-11eb-8143-0ba5eb8b1bee.gif" width="200" />
+
 This project is made with the purpose of studying [Nature Of Code](https://natureofcode.com/), and is a remix of [CodingTrain's Asteroids](https://github.com/CodingTrain/Asteroids) supporting **multiplayer**!
 
 This project was built with React (ejected from [Create React App](https://github.com/facebook/create-react-app)), Typescript, Express and  WebSocket API.
