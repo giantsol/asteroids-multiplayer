@@ -1,6 +1,6 @@
 # Asteroids - Multiplayer
 
-<img src="https://user-images.githubusercontent.com/4879766/101141837-30485200-3658-11eb-8143-0ba5eb8b1bee.gif" width="200" />
+<img src="https://user-images.githubusercontent.com/4879766/101142212-a482f580-3658-11eb-898b-99c49cf57d41.gif" width="400" />
 
 This project is made with the purpose of studying [Nature Of Code](https://natureofcode.com/), and is a remix of [CodingTrain's Asteroids](https://github.com/CodingTrain/Asteroids) supporting **multiplayer**!
 
